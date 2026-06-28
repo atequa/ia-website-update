@@ -135,13 +135,14 @@ $('#btn-key').onclick=async()=>{const key=$('#key').value.trim();if(!key)return;
     <h2>Demander une modification</h2>
     <p class="muted small">Décrivez en français ce que vous voulez changer. Ex. : « Remplace le titre de l'accueil par … », « Ajoute une question à la FAQ : … », « Corrige la faute dans le 2ᵉ témoignage ».</p>
     <textarea id="request" placeholder="Votre demande…"></textarea>
-    <div class="row"><button class="btn btn-navy" id="btn-propose">Prévisualiser la modification</button><span class="small muted" id="propose-status"></span></div>
+    <div class="row"><button class="btn btn-navy" id="btn-propose">Préparer la modification</button><span class="small muted" id="propose-status"></span></div>
   </div>
 
   <div class="card" id="proposal" style="display:none">
     <h2>Proposition de l'assistant</h2>
+    <p class="muted small" style="margin-top:0">⚠️ Rien n'est encore publié. Lisez le résumé, puis cliquez <b>« Appliquer »</b> pour publier sur le site (vous pourrez annuler après).</p>
     <div class="summary" id="prop-summary"></div><div id="prop-files"></div>
-    <div class="row"><button class="btn btn-green" id="btn-apply">✅ Appliquer</button><button class="btn btn-ghost" id="btn-cancel">Annuler</button><span class="small muted" id="apply-status"></span></div>
+    <div class="row"><button class="btn btn-green" id="btn-apply">✅ Appliquer (publier)</button><button class="btn btn-ghost" id="btn-cancel">Abandonner</button><span class="small muted" id="apply-status"></span></div>
   </div>
 
   <div class="card">
@@ -213,7 +214,7 @@ $('#btn-propose').onclick=async()=>{const req=$('#request').value.trim();if(!req
 $('#btn-cancel').onclick=()=>{$('#proposal').style.display='none';token=null;};
 $('#btn-apply').onclick=async()=>{if(!token)return;$('#btn-apply').disabled=true;$('#apply-status').textContent='Application…';
   const r=await api('apply',{token});
-  if(r.ok){$('#apply-status').innerHTML='<span class="ok">Publié ✔ ('+r.written.join(', ')+'). <a href="/" target="_blank" rel="noopener">Voir</a></span>';$('#request').value='';$('#proposal').style.display='none';refresh();}
+  if(r.ok){$('#apply-status').innerHTML='<span class="ok">Publié ✔ ('+r.written.join(', ')+'). <a href="/" target="_blank" rel="noopener">Revoir le site</a></span>';$('#request').value='';$('#proposal').style.display='none';window.open('/','_blank');refresh();}
   else $('#apply-status').innerHTML='<span class="err">'+(r.error||'Erreur')+'</span>';
   $('#btn-apply').disabled=false;};
 $('#btn-undo').onclick=async()=>{if(!confirm('Revenir à l\'état précédent ?'))return;$('#undo-status').textContent='…';
