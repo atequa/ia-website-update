@@ -1,0 +1,26 @@
+{
+    "version": "2026.06.28-1",
+    "files": [
+        {
+            "url": "payload/bo_llm.php",
+            "dest": "private/bo_llm.php",
+            "sha256": "287e75c25b9301ad550df3f0ca2ba7aa723ce2b5d5329112c6ff175bf935a69b"
+        },
+        {
+            "url": "payload/bo_providers.json",
+            "dest": "private/bo_providers.json",
+            "sha256": "0eb476723c8c343f11039189bda9e7198bc7de28e4221d9be1c9fe239c09af84"
+        },
+        {
+            "url": "payload/admin/index.php",
+            "dest": "docroot/admin/index.php",
+            "sha256": "17c1879d576100be81318471685417d40abd4915acb1c24df737c1f88af41cbe"
+        },
+        {
+            "url": "payload/admin/api.php",
+            "dest": "docroot/admin/api.php",
+            "sha256": "7ca641fc0fbee11dc3dae0f78da174b404ca050af826e82292a0f41fe861eb7a"
+        }
+    ],
+    "sig": "BzMvZWIfH+VyPI4j1aeCr8Dhj2MyjDeNvzhplDFRgvSaiGwAFIbpTXvkrbcsI9qXj507h0yqdcEbVmp6xB5YAw=="
+}

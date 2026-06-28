@@ -1,0 +1,13 @@
+[
+  {"id":"anthropic","label":"Claude (Anthropic) — qualité max","api":"anthropic","base_url":"https://api.anthropic.com","model":"claude-sonnet-4-6","free":false,"key_prefix":"sk-ant-","key_url":"https://console.anthropic.com"},
+  {"id":"cerebras","label":"Cerebras — GRATUIT (~1M tokens/jour)","api":"openai","base_url":"https://api.cerebras.ai/v1","model":"llama-3.3-70b","free":true,"key_prefix":"","key_url":"https://cloud.cerebras.ai/"},
+  {"id":"gemini","label":"Google Gemini — tier GRATUIT","api":"gemini","base_url":"https://generativelanguage.googleapis.com","model":"gemini-2.5-flash","free":true,"key_prefix":"","key_url":"https://aistudio.google.com/apikey"},
+  {"id":"groq","label":"Groq — GRATUIT, très rapide","api":"openai","base_url":"https://api.groq.com/openai/v1","model":"llama-3.3-70b-versatile","free":true,"key_prefix":"gsk_","key_url":"https://console.groq.com/keys"},
+  {"id":"openrouter","label":"OpenRouter — multi-modèles (dont gratuits)","api":"openai","base_url":"https://openrouter.ai/api/v1","model":"deepseek/deepseek-chat","free":true,"key_prefix":"sk-or-","key_url":"https://openrouter.ai/keys"},
+  {"id":"zai","label":"z.ai (GLM-4.6) — économique","api":"openai","base_url":"https://api.z.ai/api/paas/v4","model":"glm-4.6","free":false,"key_prefix":"","key_url":"https://z.ai/manage-apikey/apikey-list"},
+  {"id":"deepseek","label":"DeepSeek — très économique","api":"openai","base_url":"https://api.deepseek.com","model":"deepseek-chat","free":false,"key_prefix":"sk-","key_url":"https://platform.deepseek.com/api_keys"},
+  {"id":"qwen","label":"Qwen (Alibaba)","api":"openai","base_url":"https://dashscope-intl.aliyuncs.com/compatible-mode/v1","model":"qwen-plus","free":false,"key_prefix":"","key_url":"https://bailian.console.alibabacloud.com/"},
+  {"id":"minimax","label":"MiniMax","api":"openai","base_url":"https://api.minimax.io/v1","model":"MiniMax-Text-01","free":false,"key_prefix":"","key_url":"https://www.minimax.io/platform"},
+  {"id":"openai","label":"OpenAI (ChatGPT API)","api":"openai","base_url":"https://api.openai.com/v1","model":"gpt-4o-mini","free":false,"key_prefix":"sk-","key_url":"https://platform.openai.com/api-keys"},
+  {"id":"mistral","label":"Mistral — tier gratuit","api":"openai","base_url":"https://api.mistral.ai/v1","model":"mistral-large-latest","free":true,"key_prefix":"","key_url":"https://console.mistral.ai/api-keys"}
+]

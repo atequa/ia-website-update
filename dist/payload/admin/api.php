@@ -1,0 +1,174 @@
+<?php
+/** Back-office V3 — backend (auth magic link, multi-fournisseurs, auto-update). */
+declare(strict_types=1);
+require '/home/bafo9702/private/bo_auth.php';
+require '/home/bafo9702/private/bo_llm.php';
+require '/home/bafo9702/private/bo_control.php';
+
+header('Content-Type: application/json; charset=utf-8');
+header('X-Content-Type-Options: nosniff');
+function out($a){ echo json_encode($a, JSON_UNESCAPED_UNICODE); exit; }
+function fail($c,$m){ http_response_code($c); out(['ok'=>false,'error'=>$m]); }
+
+@mkdir(BO_BACKUPS, 0700, true);
+@mkdir(BO_PROPOSALS, 0700, true);
+
+const BO_RULES =
+"Tu es l'assistant d'édition d'un site web statique (HTML/CSS/JS pur, pas de framework). " .
+"On te donne le contenu actuel de tous les fichiers éditables, puis une demande en français. RÈGLES STRICTES :\n" .
+"- Ne modifie QUE ce que la demande implique. Ne refais pas la mise en page ; ne touche pas au SEO (title, meta, canonical, JSON-LD) sauf demande explicite.\n" .
+"- Conserve structure HTML, classes CSS, header/footer/menu identiques sur TOUTES les pages (si tu changes le header, applique-le partout).\n" .
+"- Le formulaire de contact poste vers /contact.php — n'y touche pas.\n" .
+"- Pour chaque fichier modifié, renvoie son CONTENU COMPLET réécrit (jamais un extrait/diff). Ne renvoie QUE les fichiers réellement modifiés.\n" .
+"- Si la demande est impossible/dangereuse, explique-le dans 'summary' et renvoie 'changes' vide.";
+
+$action = $_POST['action'] ?? $_GET['action'] ?? '';
+
+/* ---- Public ---- */
+if ($action === 'login_request') {
+    $email = strtolower(trim((string)($_POST['email'] ?? '')));
+    if (!bo_throttle('login_'.($_SERVER['REMOTE_ADDR'] ?? '0'), 8)) fail(429, "Merci de patienter quelques secondes.");
+    $resp = ['ok'=>true, 'message'=>"Si cet email est autorisé, un lien de connexion vient d'être envoyé (vérifiez aussi les spams)."];
+    if (filter_var($email, FILTER_VALIDATE_EMAIL) && bo_email_authorized($email)) {
+        $url = bo_magic_url(bo_create_magic($email));
+        bo_send_magic_link($email, $url);
+        if (BO_DEV_SHOW_LINK) $resp['dev_link'] = $url;
+    }
+    out($resp);
+}
+
+/* ---- Auth requise ---- */
+$user = bo_current_user();
+if (!$user) fail(401, 'Session expirée. Reconnectez-vous.');
+
+if ($action === 'logout') { bo_logout(); out(['ok'=>true]); }
+
+$ctrl = bo_control_state();
+if (in_array($action,['propose','apply','undo','upload','update','set_key','set_provider'],true) && !$ctrl['enabled'])
+    fail(403, $ctrl['message'] !== '' ? $ctrl['message'] : "Accès suspendu. Contactez votre prestataire.");
+if (in_array($action,['set_key','set_provider'],true) && $ctrl['mode']==='managed')
+    fail(403, "Le fournisseur et la clé sont gérés par votre prestataire.");
+
+function calls_today(): int { $d = bo_json_read(BO_SPENDLOG); return (int)($d[date('Y-m-d')] ?? 0); }
+function calls_inc(): void { $d = bo_json_read(BO_SPENDLOG); $k=date('Y-m-d'); $d[$k]=(int)($d[$k]??0)+1; bo_json_write(BO_SPENDLOG,$d); }
+
+if ($action === 'status') {
+    $sel = bo_selected_id();
+    $provs = array_map(fn($p)=>[
+        'id'=>$p['id'],'label'=>$p['label'],'free'=>!empty($p['free']),
+        'key_url'=>$p['key_url'] ?? '', 'model'=>$p['model'] ?? '',
+        'has_key'=>bo_get_key($p['id'])!=='',
+    ], bo_providers());
+    $ver = is_file(BO_VERSION_FILE) ? (json_decode((string)file_get_contents(BO_VERSION_FILE),true)['version'] ?? '?') : 'local';
+    out(['ok'=>true,'email'=>$user,'providers'=>$provs,'selected'=>$sel,
+         'configured'=>bo_is_configured(),'calls_today'=>calls_today(),'cap'=>BO_DAILY_CALLS,
+         'has_backup'=>!empty(glob(BO_BACKUPS.'/*', GLOB_ONLYDIR)),'version'=>$ver,
+         'enabled'=>$ctrl['enabled'],'mode'=>$ctrl['mode'],'message'=>$ctrl['message']]);
+}
+
+if ($action === 'set_provider') {
+    $pid = (string)($_POST['provider'] ?? '');
+    if (!bo_provider($pid)) fail(422, "Fournisseur inconnu.");
+    bo_set_provider($pid);
+    out(['ok'=>true]);
+}
+
+if ($action === 'set_key') {
+    $pid = (string)($_POST['provider'] ?? bo_selected_id());
+    $p = bo_provider($pid); if (!$p) fail(422, "Fournisseur inconnu.");
+    $key = trim((string)($_POST['key'] ?? ''));
+    $pref = (string)($p['key_prefix'] ?? '');
+    if (strlen($key) < 8 || ($pref!=='' && strpos($key,$pref)!==0)) fail(422, "Clé invalide".($pref?" (doit commencer par $pref)":"").".");
+    if (!bo_set_key($pid, $key)) fail(500, "Impossible d'enregistrer la clé.");
+    bo_set_provider($pid);
+    out(['ok'=>true]);
+}
+
+if ($action === 'update') {
+    require '/home/bafo9702/private/bo_updater.php';
+    out(bo_run_update());
+}
+
+/* ---- Édition ---- */
+function editable_path(string $name): ?string {
+    if (!in_array($name, BO_EDITABLE, true)) return null;
+    $p = BO_DOCROOT.'/'.$name; $real=realpath(BO_DOCROOT); $rp=realpath(dirname($p));
+    if ($real===false || $rp===false || strpos($rp,$real)!==0) return null;
+    return $p;
+}
+function read_site_files(): array {
+    $f=[]; foreach (BO_EDITABLE as $n){ $p=BO_DOCROOT.'/'.$n; if (is_file($p)) $f[$n]=file_get_contents($p); } return $f;
+}
+
+if ($action === 'propose') {
+    $req = trim((string)($_POST['request'] ?? ''));
+    if ($req==='') fail(422, "Demande vide.");
+    if (mb_strlen($req) > 4000) fail(422, "Demande trop longue.");
+    if (!bo_is_configured()) fail(409, "needs_key");
+    if (calls_today() >= BO_DAILY_CALLS) fail(429, "Plafond de ".BO_DAILY_CALLS." requêtes/jour atteint. Réessayez demain.");
+
+    $pid = bo_selected_id(); $p = bo_provider($pid); $key = bo_get_key($pid);
+    if (!$p) fail(409, "needs_key");
+    $files = read_site_files();
+    $corpus=''; foreach ($files as $n=>$c) $corpus .= "\n===== FICHIER: $n =====\n".$c."\n";
+
+    calls_inc();
+    $r = bo_llm_edit($p, $key, BO_RULES, $corpus, $req);
+    if (!$r['ok']) fail(502, $r['error']);
+    $parsed = $r['parsed'];
+    if (!is_array($parsed) || !isset($parsed['summary'])) fail(502, "Réponse du fournisseur illisible. Réessayez ou changez de fournisseur.");
+
+    $changes=[];
+    foreach (($parsed['changes'] ?? []) as $c) {
+        $name = basename((string)($c['path'] ?? ''));
+        if (editable_path($name)===null) continue;
+        $old = $files[$name] ?? ''; $new=(string)($c['new_content'] ?? '');
+        if ($new===''||$new===$old) continue;
+        $changes[] = ['path'=>$name,'new_content'=>$new,'old_len'=>strlen($old),'new_len'=>strlen($new)];
+    }
+    $token = bin2hex(random_bytes(8));
+    file_put_contents(BO_PROPOSALS.'/'.$token.'.json', json_encode(['changes'=>$changes], JSON_UNESCAPED_UNICODE), LOCK_EX);
+    out(['ok'=>true,'token'=>$token,'summary'=>$parsed['summary'],
+         'changes'=>array_map(fn($c)=>['path'=>$c['path'],'old_len'=>$c['old_len'],'new_len'=>$c['new_len']], $changes),
+         'tokens'=>['in'=>$r['in']??0,'out'=>$r['out']??0],'provider'=>$p['label']]);
+}
+
+if ($action === 'apply') {
+    $token = preg_replace('/[^a-f0-9]/','',(string)($_POST['token'] ?? ''));
+    $pf = BO_PROPOSALS.'/'.$token.'.json';
+    if ($token===''||!is_file($pf)) fail(404, "Proposition introuvable ou expirée.");
+    $changes = json_decode((string)file_get_contents($pf), true)['changes'] ?? [];
+    if (!$changes) fail(422, "Rien à appliquer.");
+    $stamp=date('Ymd-His'); $bdir=BO_BACKUPS.'/'.$stamp; @mkdir($bdir,0700,true);
+    foreach ($changes as $c){ $p=editable_path($c['path']); if ($p && is_file($p)) copy($p,$bdir.'/'.$c['path']); }
+    $written=[]; foreach ($changes as $c){ $p=editable_path($c['path']); if ($p){ file_put_contents($p,$c['new_content'],LOCK_EX); $written[]=$c['path']; } }
+    @unlink($pf);
+    out(['ok'=>true,'written'=>$written]);
+}
+
+if ($action === 'undo') {
+    $dirs = glob(BO_BACKUPS.'/*', GLOB_ONLYDIR);
+    if (!$dirs) fail(404, "Aucune sauvegarde à restaurer.");
+    natsort($dirs); $last=end($dirs); $restored=[];
+    foreach (glob($last.'/*') as $bf){ $n=basename($bf); $p=editable_path($n); if ($p){ copy($bf,$p); $restored[]=$n; } }
+    foreach (glob($last.'/*') as $bf) @unlink($bf); @rmdir($last);
+    out(['ok'=>true,'restored'=>$restored]);
+}
+
+if ($action === 'upload') {
+    if (empty($_FILES['image']) || $_FILES['image']['error']!==UPLOAD_ERR_OK) fail(422, "Aucun fichier reçu.");
+    $f=$_FILES['image'];
+    if ($f['size'] > 6*1024*1024) fail(422, "Image trop lourde (max 6 Mo).");
+    $info=@getimagesize($f['tmp_name']); if ($info===false) fail(422, "Fichier non reconnu comme image.");
+    $ext=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/svg+xml'=>'svg','image/gif'=>'gif'][$info['mime']??'']??null;
+    if ($ext===null) fail(422, "Format non autorisé (jpg/png/webp/svg/gif).");
+    $base=preg_replace('/[^a-zA-Z0-9_-]/','-', pathinfo($f['name'], PATHINFO_FILENAME));
+    $base=trim(substr($base,0,40),'-') ?: 'image';
+    $dest=BO_DOCROOT.'/assets/'.$base.'.'.$ext; $i=1;
+    while (is_file($dest)){ $dest=BO_DOCROOT.'/assets/'.$base.'-'.($i++).'.'.$ext; }
+    if (!move_uploaded_file($f['tmp_name'],$dest)) fail(500, "Échec de l'enregistrement.");
+    @chmod($dest,0644);
+    out(['ok'=>true,'filename'=>'assets/'.basename($dest)]);
+}
+
+fail(400, "Action inconnue.");
