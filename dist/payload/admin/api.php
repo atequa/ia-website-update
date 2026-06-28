@@ -70,19 +70,29 @@ if (in_array($action,['propose','apply','undo','upload','update','set_key','set_
 if (in_array($action,['set_key','set_provider'],true) && $ctrl['mode']==='managed')
     fail(403, "Le fournisseur et la clé sont gérés par votre prestataire.");
 
-function calls_today(): int { $d = bo_json_read(BO_SPENDLOG); return (int)($d[date('Y-m-d')] ?? 0); }
-function calls_inc(): void { $d = bo_json_read(BO_SPENDLOG); $k=date('Y-m-d'); $d[$k]=(int)($d[$k]??0)+1; bo_json_write(BO_SPENDLOG,$d); }
+function usage_today(): array {
+    $d = bo_json_read(BO_SPENDLOG); $e = $d[date('Y-m-d')] ?? [];
+    if (!is_array($e)) $e = ['calls'=>(int)$e];
+    return ['calls'=>(int)($e['calls']??0), 'in'=>(int)($e['in']??0), 'out'=>(int)($e['out']??0)];
+}
+function usage_record(int $in=0, int $out=0, int $calls=0): void {
+    $d = bo_json_read(BO_SPENDLOG); $u = usage_today();
+    $d[date('Y-m-d')] = ['calls'=>$u['calls']+$calls, 'in'=>$u['in']+$in, 'out'=>$u['out']+$out];
+    bo_json_write(BO_SPENDLOG, $d);
+}
 
 if ($action === 'status') {
     $sel = bo_selected_id();
     $provs = array_map(fn($p)=>[
         'id'=>$p['id'],'label'=>$p['label'],'free'=>!empty($p['free']),
         'key_url'=>$p['key_url'] ?? '', 'model'=>$p['model'] ?? '',
+        'free_note'=>$p['free_note'] ?? '',
         'has_key'=>bo_get_key($p['id'])!=='',
     ], bo_providers());
+    $u = usage_today();
     $ver = is_file(BO_VERSION_FILE) ? (json_decode((string)file_get_contents(BO_VERSION_FILE),true)['version'] ?? '?') : 'local';
     out(['ok'=>true,'email'=>$user,'providers'=>$provs,'selected'=>$sel,
-         'configured'=>bo_is_configured(),'calls_today'=>calls_today(),'cap'=>BO_DAILY_CALLS,
+         'configured'=>bo_is_configured(),'calls_today'=>$u['calls'],'tokens_today'=>$u['in']+$u['out'],'cap'=>BO_DAILY_CALLS,
          'has_history'=>!empty(bo_json_read(BO_HISTORY_FILE)),'version'=>$ver,
          'enabled'=>$ctrl['enabled'],'mode'=>$ctrl['mode'],'message'=>$ctrl['message']]);
 }
@@ -126,16 +136,17 @@ if ($action === 'propose') {
     if ($req==='') fail(422, "Demande vide.");
     if (mb_strlen($req) > 4000) fail(422, "Demande trop longue.");
     if (!bo_is_configured()) fail(409, "needs_key");
-    if (calls_today() >= BO_DAILY_CALLS) fail(429, "Plafond de ".BO_DAILY_CALLS." requêtes/jour atteint. Réessayez demain.");
+    if (usage_today()['calls'] >= BO_DAILY_CALLS) fail(429, "Plafond de ".BO_DAILY_CALLS." requêtes/jour atteint. Réessayez demain.");
 
     $pid = bo_selected_id(); $p = bo_provider($pid); $key = bo_get_key($pid);
     if (!$p) fail(409, "needs_key");
     $files = read_site_files();
     $corpus=''; foreach ($files as $n=>$c) $corpus .= "\n===== FICHIER: $n =====\n".$c."\n";
 
-    calls_inc();
+    usage_record(0, 0, 1);                 // compte la requête
     $r = bo_llm_edit($p, $key, BO_RULES, $corpus, $req);
     if (!$r['ok']) fail(502, $r['error']);
+    usage_record((int)($r['in']??0), (int)($r['out']??0), 0);   // ajoute les tokens consommés
     $parsed = $r['parsed'];
     if (!is_array($parsed) || !isset($parsed['summary'])) fail(502, "Réponse du fournisseur illisible. Réessayez ou changez de fournisseur.");
 

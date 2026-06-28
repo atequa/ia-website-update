@@ -1,5 +1,5 @@
 {
-    "version": "2026.06.28-5",
+    "version": "2026.06.28-6",
     "files": [
         {
             "url": "payload/bo_llm.php",
@@ -9,17 +9,17 @@
         {
             "url": "payload/bo_providers.json",
             "dest": "private/bo_providers.json",
-            "sha256": "0eb476723c8c343f11039189bda9e7198bc7de28e4221d9be1c9fe239c09af84"
+            "sha256": "d3b86c90bf9bf9bcb1a5b13e884844204c6ab92883aef2514463b950a2e1fe25"
         },
         {
             "url": "payload/admin/index.php",
             "dest": "docroot/admin/index.php",
-            "sha256": "c6148bd07a4b248cfe7d058481b56a64f83fa832466285af1a55bc356c0cb74a"
+            "sha256": "3dea6404bb50ebcce94a7900104a51292973d3363b2ea8b427b255fcfe057582"
         },
         {
             "url": "payload/admin/api.php",
             "dest": "docroot/admin/api.php",
-            "sha256": "fa3441f7fba68c49d866d6fd112236fbb9d9b8ceb3b9ee93a351a8265be7b901"
+            "sha256": "274f85b557bee0a23fdb309200502419604076626aa371c04e70bc6e728d94ec"
         },
         {
             "url": "payload/admin/preview.php",
@@ -27,5 +27,5 @@
             "sha256": "ea018d92ca63a015554a65263500ce37728711e3d1e95ccddad4c4eebbca6fbf"
         }
     ],
-    "sig": "+HyQupGj+B25O8un0Ol3INKI38MA6FnumF/wnc3pJZDPMkItLU0bmFXBmzUA9FCPefJC5/WrG1Wm/78WjEGNCQ=="
+    "sig": "MIPjFztge7Q3COBMf2j6DgKE50niz8pHG5ba0Djx/PgKHt8OcQiJyfBEvX/q7gJ4svrtJXfr8JsqrsTRbEUcAg=="
 }

@@ -176,6 +176,10 @@ $('#email').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-login').cl
 
   <!-- ===== RÉGLAGES ===== -->
   <section data-section="settings" hidden>
+    <div class="card">
+      <h2>Consommation (aujourd'hui)</h2>
+      <p class="muted small" id="usage-line">…</p>
+    </div>
     <?php if(!$managed): ?>
     <div class="card">
       <h2>Fournisseur IA</h2>
@@ -210,8 +214,9 @@ $$('.topnav a[data-view]').forEach(a=>a.onclick=()=>{
 async function refresh(){try{const s=await api('status');
   $('#meta').childNodes[0].nodeValue=s.email+' · ';
   if($('#ver'))$('#ver').textContent=s.version;
-  if($('#prov-status')){const p=s.providers.find(x=>x.id===s.selected);
-    $('#prov-status').textContent=(p&&p.has_key)?('clé en place · '+s.calls_today+'/'+s.cap+' requêtes aujourd\'hui'):'⚠️ aucune clé pour ce fournisseur';}
+  const pp=s.providers.find(x=>x.id===s.selected);
+  if($('#prov-status'))$('#prov-status').textContent=(pp&&pp.has_key)?'clé en place ✔':'⚠️ aucune clé pour ce fournisseur';
+  if($('#usage-line'))$('#usage-line').innerHTML='📊 Via ce site aujourd\'hui : <b>'+s.calls_today+'</b> requête(s) · <b>~'+(s.tokens_today||0).toLocaleString('fr-FR')+'</b> tokens (plafond local '+s.cap+' req/j).'+(pp&&pp.free_note?'<br>Fournisseur <b>'+escapeHtml(pp.label)+'</b> : quota '+escapeHtml(pp.free_note)+'.':'')+'<br><span class="muted">Le quota gratuit restant exact se vérifie sur la console du fournisseur.</span>';
 }catch(e){}}
 refresh();
 $('#logout').onclick=async e=>{e.preventDefault();await api('logout');location.reload();};
