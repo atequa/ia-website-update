@@ -1,0 +1,18 @@
+# Back-office — protégé par magic link (auth gérée en PHP) + non indexé.
+DirectoryIndex index.php index.html
+
+<IfModule mod_headers.c>
+  Header always set X-Robots-Tag "noindex, nofollow"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  # L'admin n'est JAMAIS mis en cache (annule l'Expires hérité du docroot).
+  Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+</IfModule>
+<IfModule mod_expires.c>
+  ExpiresActive Off
+</IfModule>
+
+# Empêche l'accès direct à un éventuel fichier non-php déposé ici par erreur.
+<FilesMatch "\.(json|bak|log|txt)$">
+  Require all denied
+</FilesMatch>
