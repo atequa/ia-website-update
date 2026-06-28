@@ -94,7 +94,6 @@ function opt_providers(array $providers, string $selected): string {
   <p class="muted small">Entrez votre email : vous recevrez un lien de connexion (15 min). Aucun mot de passe à retenir.</p>
   <input type="email" id="email" placeholder="vous@exemple.com" autocomplete="email">
   <div class="row"><button class="btn btn-navy" id="btn-login">Recevoir mon lien</button><span class="small" id="login-status"></span></div>
-  <div id="dev-link" class="small" style="margin-top:.8rem"></div>
 </div></main>
 <script>
 const $=s=>document.querySelector(s);
@@ -102,7 +101,6 @@ $('#btn-login').onclick=async()=>{const email=$('#email').value.trim();if(!email
   $('#btn-login').disabled=true;$('#login-status').innerHTML='<span class="spinner"></span>';
   try{const r=await(await fetch('api.php',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({action:'login_request',email})})).json();
     $('#login-status').innerHTML='<span class="ok">'+(r.message||'Envoyé.')+'</span>';
-    if(r.dev_link)$('#dev-link').innerHTML='Lien de test : <a href="'+r.dev_link+'">se connecter</a>';
   }catch(e){$('#login-status').innerHTML='<span class="err">Erreur réseau</span>';}
   $('#btn-login').disabled=false;};
 $('#email').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-login').click();});

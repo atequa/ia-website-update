@@ -49,13 +49,15 @@ $action = $_POST['action'] ?? $_GET['action'] ?? '';
 if ($action === 'login_request') {
     $email = strtolower(trim((string)($_POST['email'] ?? '')));
     if (!bo_throttle('login_'.($_SERVER['REMOTE_ADDR'] ?? '0'), 8)) fail(429, "Merci de patienter quelques secondes.");
-    $resp = ['ok'=>true, 'message'=>"Si cet email est autorisé, un lien de connexion vient d'être envoyé (vérifiez aussi les spams)."];
     if (filter_var($email, FILTER_VALIDATE_EMAIL) && bo_email_authorized($email)) {
         $url = bo_magic_url(bo_create_magic($email));
         bo_send_magic_link($email, $url);
-        if (BO_DEV_SHOW_LINK) $resp['dev_link'] = $url;
+        // Copie PRIVÉE hors docroot (récupérable par le prestataire via cPanel/FTP tant que l'email
+        // ne délivre pas, ex. avant cutover DNS). JAMAIS renvoyée au navigateur.
+        @file_put_contents(BO_PRIVATE.'/bo_lastmagic.txt', date('c')." ".$email."\n".$url."\n");
+        @chmod(BO_PRIVATE.'/bo_lastmagic.txt', 0600);
     }
-    out($resp);
+    out(['ok'=>true, 'message'=>"Si cet email est autorisé, un lien de connexion vient d'être envoyé (vérifiez aussi les spams)."]);
 }
 
 /* ---- Auth requise ---- */
