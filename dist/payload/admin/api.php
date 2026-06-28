@@ -7,6 +7,7 @@ require '/home/bafo9702/private/bo_control.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 function out($a){ echo json_encode($a, JSON_UNESCAPED_UNICODE); exit; }
 function fail($c,$m){ http_response_code($c); out(['ok'=>false,'error'=>$m]); }
 

@@ -4,6 +4,10 @@ require '/home/bafo9702/private/bo_auth.php';
 require '/home/bafo9702/private/bo_llm.php';
 require '/home/bafo9702/private/bo_control.php';
 
+// L'admin ne doit JAMAIS être mis en cache (sinon on re-sert la page de connexion en cache → boucle).
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+
 if (isset($_GET['login'])) {
     $email = bo_verify_magic((string)$_GET['login']);
     if ($email) bo_login($email);
