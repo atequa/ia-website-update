@@ -274,7 +274,7 @@ $('#btn-upload').onclick=async()=>{const f=$('#image').files[0];if(!f)return;$('
 async function loadUploads(){const el=$('#uploads');if(!el)return;
   try{const r=await api('list_uploads');if(!r.ok)return;
     el.innerHTML=r.files.map(f=>'<div class="thumb"><img src="/'+f+'" alt=""><button class="x" data-f="'+f+'" title="Supprimer">×</button><div class="fn">'+escapeHtml(f.replace('assets/',''))+'</div></div>').join('');
-    el.querySelectorAll('.x').forEach(b=>b.onclick=async()=>{if(!confirm('Supprimer '+b.dataset.f+' ?'))return;const r=await api('delete_image',{filename:b.dataset.f});if(r.ok)loadUploads();else alert(r.error||'Erreur');});
+    el.querySelectorAll('.x').forEach(b=>b.onclick=async()=>{if(!confirm('Supprimer '+b.dataset.f+' ?'))return;const r=await api('delete_image',{filename:b.dataset.f});if(r.ok){if($('#upload-status'))$('#upload-status').textContent='';loadUploads();}else alert(r.error||'Erreur');});
   }catch(e){}}
 loadUploads();
 $('#request').addEventListener('paste',async(e)=>{
