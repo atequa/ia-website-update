@@ -130,7 +130,7 @@ $('#email').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-login').cl
     <a data-view="settings">⚙️ Réglages</a>
     <a href="/" target="_blank" rel="noopener">👁 Voir le site</a>
   </nav>
-  <div class="meta" id="meta"><?=htmlspecialchars($user)?> · <a class="logout" href="#" id="logout">déconnexion</a></div>
+  <div class="meta"><span><?=htmlspecialchars($user)?></span> · <span id="quota" class="small" title="Consommation IA du jour via ce site">📊 …</span> · <a class="logout" href="#" id="logout">déconnexion</a></div>
 </header>
 <main>
 
@@ -220,8 +220,9 @@ $$('.topnav a[data-view]').forEach(a=>a.onclick=()=>{
 });
 
 async function refresh(){try{const s=await api('status');
-  $('#meta').childNodes[0].nodeValue=s.email+' · ';
   if($('#ver'))$('#ver').textContent=s.version;
+  const _p=s.providers.find(x=>x.id===s.selected);
+  if($('#quota'))$('#quota').textContent='📊 '+s.calls_today+' req · ~'+(s.tokens_today||0).toLocaleString('fr-FR')+' tk'+(_p&&_p.free?' (gratuit)':'');
   const pp=s.providers.find(x=>x.id===s.selected);
   if($('#prov-status'))$('#prov-status').textContent=(pp&&pp.has_key)?'clé en place ✔':'⚠️ aucune clé pour ce fournisseur';
   if($('#usage-line'))$('#usage-line').innerHTML='📊 Via ce site aujourd\'hui : <b>'+s.calls_today+'</b> requête(s) · <b>~'+(s.tokens_today||0).toLocaleString('fr-FR')+'</b> tokens (plafond local '+s.cap+' req/j).'+(pp&&pp.free_note?'<br>Fournisseur <b>'+escapeHtml(pp.label)+'</b> : quota '+escapeHtml(pp.free_note)+'.':'')+'<br><span class="muted">Le quota gratuit restant exact se vérifie sur la console du fournisseur.</span>';
