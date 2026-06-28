@@ -213,15 +213,19 @@ if ($action === 'undo') {
     out(['ok'=>true,'restored'=>$restored]);
 }
 
+const BO_UPLOAD_EXT = ['jpg','jpeg','png','webp','gif','svg','pdf','doc','docx','xls','xlsx','ppt','pptx','csv'];
+const BO_IMG_EXT    = ['jpg','jpeg','png','webp','gif','svg'];
 if ($action === 'upload') {
     if (empty($_FILES['image']) || $_FILES['image']['error']!==UPLOAD_ERR_OK) fail(422, "Aucun fichier reçu.");
     $f=$_FILES['image'];
-    if ($f['size'] > 6*1024*1024) fail(422, "Image trop lourde (max 6 Mo).");
-    $info=@getimagesize($f['tmp_name']); if ($info===false) fail(422, "Fichier non reconnu comme image.");
-    $ext=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/svg+xml'=>'svg','image/gif'=>'gif'][$info['mime']??'']??null;
-    if ($ext===null) fail(422, "Format non autorisé (jpg/png/webp/svg/gif).");
+    if ($f['size'] > 20*1024*1024) fail(422, "Fichier trop lourd (max 20 Mo).");
+    $ext=strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
+    if (!in_array($ext, BO_UPLOAD_EXT, true)) fail(422, "Type non autorisé. Acceptés : images, PDF, doc/xls/ppt, csv.");
+    if (in_array($ext, BO_IMG_EXT, true) && $ext!=='svg' && @getimagesize($f['tmp_name'])===false) fail(422, "Image illisible.");
+    $head=@file_get_contents($f['tmp_name'],false,null,0,512);
+    if ($head!==false && stripos($head,'<?php')!==false) fail(422, "Fichier refusé (contenu non autorisé).");
     $base=preg_replace('/[^a-zA-Z0-9_-]/','-', pathinfo($f['name'], PATHINFO_FILENAME));
-    $base=trim(substr($base,0,40),'-') ?: 'image';
+    $base=trim(substr($base,0,40),'-') ?: 'fichier';
     $dest=BO_DOCROOT.'/assets/'.$base.'.'.$ext; $i=1;
     while (is_file($dest)){ $dest=BO_DOCROOT.'/assets/'.$base.'-'.($i++).'.'.$ext; }
     if (!move_uploaded_file($f['tmp_name'],$dest)) fail(500, "Échec de l'enregistrement.");
@@ -238,7 +242,7 @@ if ($action === 'list_uploads') {
     foreach (glob(BO_DOCROOT.'/assets/*') as $f) {
         if (!is_file($f)) continue; $b = basename($f);
         $ext = strtolower(pathinfo($b, PATHINFO_EXTENSION));
-        if (!in_array($ext, ['jpg','jpeg','png','webp','gif','svg'], true)) continue;
+        if (!in_array($ext, ['jpg','jpeg','png','webp','gif','svg','pdf','doc','docx','xls','xlsx','ppt','pptx','csv'], true)) continue;
         if (in_array($b, BO_CORE_ASSETS, true)) continue;
         $rel = 'assets/'.$b; if (!in_array($rel, $up, true)) $up[] = $rel;
     }

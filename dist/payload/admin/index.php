@@ -80,6 +80,8 @@ function opt_providers(array $providers, string $selected): string {
   .thumb img{width:96px;height:72px;object-fit:cover;border:1px solid var(--line);border-radius:.4rem;background:#fff}
   .thumb .x{position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;border:0;background:#b3261e;color:#fff;cursor:pointer;font-weight:700;line-height:1;font-size:14px}
   .thumb .fn{font-size:.62rem;color:var(--muted);word-break:break-all;margin-top:.15rem}
+  .thumb .filecard{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.15rem;width:96px;height:72px;border:1px solid var(--line);border-radius:.4rem;background:#fff;font-size:1.7rem;text-decoration:none;color:var(--navy)}
+  .thumb .filecard span{font-size:.6rem;font-weight:700}
   .banner{background:#e8f5ee;border:1px solid #bfe3cf;border-radius:.5rem;padding:.7rem .9rem;margin:0 0 1rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
 </style>
 </head>
@@ -165,9 +167,9 @@ $('#email').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-login').cl
     </div>
 
     <div class="card">
-      <h2>Images</h2>
-      <p class="muted small" style="margin-top:0">Téléversez une image <b>ou collez-la</b> (Ctrl/Cmd + V) directement dans la zone de demande ci-dessus. Puis : « utilise l'image <code>assets/xxx.jpg</code> pour … ».</p>
-      <div class="row"><input type="file" id="image" accept="image/*"><button class="btn btn-ghost" id="btn-upload">Téléverser</button><span class="small" id="upload-status"></span></div>
+      <h2>Fichiers (images, PDF, documents)</h2>
+      <p class="muted small" style="margin-top:0">Téléversez une image ou un document (PDF, Word, Excel…) <b>— ou collez une image</b> (Ctrl/Cmd + V) dans la zone de demande ci-dessus. Puis : « remplace la carte PDF par <code>assets/xxx.pdf</code> » ou « utilise l'image <code>assets/xxx.jpg</code> pour … ».</p>
+      <div class="row"><input type="file" id="image" accept=".jpg,.jpeg,.png,.webp,.gif,.svg,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv"><button class="btn btn-ghost" id="btn-upload">Téléverser</button><span class="small" id="upload-status"></span></div>
       <div id="uploads" class="uploads"></div>
     </div>
   </section>
@@ -269,11 +271,11 @@ $('#btn-apply').onclick=async()=>{if(!token)return;$('#btn-apply').disabled=true
 /* ---- Image ---- */
 $('#btn-upload').onclick=async()=>{const f=$('#image').files[0];if(!f)return;$('#upload-status').textContent='Envoi…';
   const fd=new FormData();fd.append('image',f); const r=await api('upload',fd,true);
-  if(r.ok){$('#upload-status').innerHTML='<span class="ok">Ajoutée : <code>'+r.filename+'</code></span>';$('#image').value='';loadUploads();}
+  if(r.ok){$('#upload-status').innerHTML='<span class="ok">Fichier ajouté : <code>'+r.filename+'</code></span>';$('#image').value='';loadUploads();}
   else $('#upload-status').innerHTML='<span class="err">'+(r.error||'Erreur')+'</span>';};
 async function loadUploads(){const el=$('#uploads');if(!el)return;
   try{const r=await api('list_uploads');if(!r.ok)return;
-    el.innerHTML=r.files.map(f=>'<div class="thumb"><img src="/'+f+'" alt=""><button class="x" data-f="'+f+'" title="Supprimer">×</button><div class="fn">'+escapeHtml(f.replace('assets/',''))+'</div></div>').join('');
+    el.innerHTML=r.files.map(f=>{const ext=f.split('.').pop().toLowerCase();const isImg=['jpg','jpeg','png','webp','gif','svg'].includes(ext);const inner=isImg?'<img src="/'+f+'" alt="">':'<a class="filecard" href="/'+f+'" target="_blank" rel="noopener">📄<span>'+ext.toUpperCase()+'</span></a>';return '<div class="thumb">'+inner+'<button class="x" data-f="'+f+'" title="Supprimer">×</button><div class="fn">'+escapeHtml(f.replace('assets/',''))+'</div></div>';}).join('');
     el.querySelectorAll('.x').forEach(b=>b.onclick=async()=>{if(!confirm('Supprimer '+b.dataset.f+' ?'))return;const r=await api('delete_image',{filename:b.dataset.f});if(r.ok){if($('#upload-status'))$('#upload-status').textContent='';loadUploads();}else alert(r.error||'Erreur');});
   }catch(e){}}
 loadUploads();
