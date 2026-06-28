@@ -252,7 +252,7 @@ $('#prev-page').onchange=setPreview;
 $('#btn-cancel').onclick=()=>{$('#proposal').hidden=true;token=null;$('#prev-frame').src='about:blank';};
 $('#btn-apply').onclick=async()=>{if(!token)return;$('#btn-apply').disabled=true;$('#apply-status').textContent='Publication…';
   const r=await api('apply',{token});
-  if(r.ok){$('#apply-status').innerHTML='<span class="ok">Publié ✔ ('+r.written.join(', ')+'). <a href="/" target="_blank" rel="noopener">Voir le site</a></span>';$('#request').value='';$('#proposal').hidden=true;$('#prev-frame').src='about:blank';token=null;window.open('/','_blank');refresh();}
+  if(r.ok){$('#apply-status').innerHTML='<span class="ok">✔ Publié sur le site.</span> <a class="btn btn-ghost" href="/" target="_blank" rel="noopener" style="margin-left:.4rem">👁 Voir le site</a>';$('#request').value='';$('#proposal').hidden=true;$('#prev-frame').src='about:blank';token=null;refresh();}
   else $('#apply-status').innerHTML='<span class="err">'+(r.error||'Erreur')+'</span>';
   $('#btn-apply').disabled=false;};
 

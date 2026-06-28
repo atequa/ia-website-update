@@ -174,6 +174,17 @@ if ($action === 'apply') {
     if (!$changes) fail(422, "Rien à appliquer.");
     $id = bo_newid(); bo_snapshot_all($id);                 // snapshot complet AVANT la modif
     $written=[]; foreach ($changes as $c){ $p=editable_path($c['path']); if ($p){ file_put_contents($p,$c['new_content'],LOCK_EX); $written[]=$c['path']; } }
+    // Cache-busting : si un CSS/JS a changé, on incrémente ?v= dans tous les HTML (force le rechargement navigateur).
+    if (preg_grep('/\.(css|js)$/', $written)) {
+        $v = date('YmdHis');
+        foreach (BO_EDITABLE as $n) {
+            if (substr($n,-5) !== '.html') continue;
+            $hp = BO_DOCROOT.'/'.$n; if (!is_file($hp)) continue;
+            $html = file_get_contents($hp);
+            $new = preg_replace('/(\.(?:css|js))\?v=[0-9A-Za-z._-]*/', '$1?v='.$v, $html);
+            if ($new !== null && $new !== $html) file_put_contents($hp, $new, LOCK_EX);
+        }
+    }
     bo_history_add($id, $summary, $written);
     @unlink($pf);
     out(['ok'=>true,'written'=>$written]);
