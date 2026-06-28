@@ -11,8 +11,28 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 function out($a){ echo json_encode($a, JSON_UNESCAPED_UNICODE); exit; }
 function fail($c,$m){ http_response_code($c); out(['ok'=>false,'error'=>$m]); }
 
-@mkdir(BO_BACKUPS, 0700, true);
+@mkdir(BO_HISTORY, 0700, true);
 @mkdir(BO_PROPOSALS, 0700, true);
+
+function bo_newid(): string { return date('Ymd-His').'-'.bin2hex(random_bytes(2)); }
+function bo_snapshot_all(string $id): void {
+    $d = BO_HISTORY.'/'.$id; @mkdir($d, 0700, true);
+    foreach (BO_EDITABLE as $n) { $p = BO_DOCROOT.'/'.$n; if (is_file($p)) copy($p, $d.'/'.$n); }
+}
+function bo_history_add(string $id, string $summary, array $changed): void {
+    $h = bo_json_read(BO_HISTORY_FILE);
+    array_unshift($h, ['id'=>$id, 'date'=>date('Y-m-d H:i'), 'summary'=>$summary, 'changed'=>$changed]);
+    while (count($h) > BO_HISTORY_KEEP) {
+        $old = array_pop($h); $d = BO_HISTORY.'/'.($old['id'] ?? '');
+        if ($old && is_dir($d)) { foreach (glob($d.'/*') as $f) @unlink($f); @rmdir($d); }
+    }
+    bo_json_write(BO_HISTORY_FILE, $h);
+}
+function bo_restore_snapshot(string $id): array {
+    $d = BO_HISTORY.'/'.$id; $restored = [];
+    foreach (glob($d.'/*') as $bf) { $n = basename($bf); $p = editable_path($n); if ($p) { copy($bf, $p); $restored[] = $n; } }
+    return $restored;
+}
 
 const BO_RULES =
 "Tu es l'assistant d'édition d'un site web statique (HTML/CSS/JS pur, pas de framework). " .
@@ -63,7 +83,7 @@ if ($action === 'status') {
     $ver = is_file(BO_VERSION_FILE) ? (json_decode((string)file_get_contents(BO_VERSION_FILE),true)['version'] ?? '?') : 'local';
     out(['ok'=>true,'email'=>$user,'providers'=>$provs,'selected'=>$sel,
          'configured'=>bo_is_configured(),'calls_today'=>calls_today(),'cap'=>BO_DAILY_CALLS,
-         'has_backup'=>!empty(glob(BO_BACKUPS.'/*', GLOB_ONLYDIR)),'version'=>$ver,
+         'has_history'=>!empty(bo_json_read(BO_HISTORY_FILE)),'version'=>$ver,
          'enabled'=>$ctrl['enabled'],'mode'=>$ctrl['mode'],'message'=>$ctrl['message']]);
 }
 
@@ -128,7 +148,7 @@ if ($action === 'propose') {
         $changes[] = ['path'=>$name,'new_content'=>$new,'old_len'=>strlen($old),'new_len'=>strlen($new)];
     }
     $token = bin2hex(random_bytes(8));
-    file_put_contents(BO_PROPOSALS.'/'.$token.'.json', json_encode(['changes'=>$changes], JSON_UNESCAPED_UNICODE), LOCK_EX);
+    file_put_contents(BO_PROPOSALS.'/'.$token.'.json', json_encode(['changes'=>$changes,'summary'=>$parsed['summary']], JSON_UNESCAPED_UNICODE), LOCK_EX);
     out(['ok'=>true,'token'=>$token,'summary'=>$parsed['summary'],
          'changes'=>array_map(fn($c)=>['path'=>$c['path'],'old_len'=>$c['old_len'],'new_len'=>$c['new_len']], $changes),
          'tokens'=>['in'=>$r['in']??0,'out'=>$r['out']??0],'provider'=>$p['label']]);
@@ -138,21 +158,36 @@ if ($action === 'apply') {
     $token = preg_replace('/[^a-f0-9]/','',(string)($_POST['token'] ?? ''));
     $pf = BO_PROPOSALS.'/'.$token.'.json';
     if ($token===''||!is_file($pf)) fail(404, "Proposition introuvable ou expirée.");
-    $changes = json_decode((string)file_get_contents($pf), true)['changes'] ?? [];
+    $prop = json_decode((string)file_get_contents($pf), true);
+    $changes = $prop['changes'] ?? []; $summary = trim((string)($prop['summary'] ?? '')) ?: 'Modification';
     if (!$changes) fail(422, "Rien à appliquer.");
-    $stamp=date('Ymd-His'); $bdir=BO_BACKUPS.'/'.$stamp; @mkdir($bdir,0700,true);
-    foreach ($changes as $c){ $p=editable_path($c['path']); if ($p && is_file($p)) copy($p,$bdir.'/'.$c['path']); }
+    $id = bo_newid(); bo_snapshot_all($id);                 // snapshot complet AVANT la modif
     $written=[]; foreach ($changes as $c){ $p=editable_path($c['path']); if ($p){ file_put_contents($p,$c['new_content'],LOCK_EX); $written[]=$c['path']; } }
+    bo_history_add($id, $summary, $written);
     @unlink($pf);
     out(['ok'=>true,'written'=>$written]);
 }
 
+if ($action === 'history') {
+    out(['ok'=>true,'entries'=>bo_json_read(BO_HISTORY_FILE)]);
+}
+
+if ($action === 'restore') {
+    $id = preg_replace('/[^0-9A-Za-z_-]/','',(string)($_POST['id'] ?? ''));
+    $h = bo_json_read(BO_HISTORY_FILE); $entry=null; foreach($h as $e) if(($e['id']??'')===$id){$entry=$e;break;}
+    if ($id===''||!$entry||!is_dir(BO_HISTORY.'/'.$id)) fail(404, "Version introuvable.");
+    $cur=bo_newid(); bo_snapshot_all($cur);                 // l'état actuel reste restaurable
+    $restored = bo_restore_snapshot($id);
+    bo_history_add($cur, "↩︎ Retour à l'état d'avant « ".mb_substr((string)$entry['summary'],0,90)." »", $restored);
+    out(['ok'=>true,'restored'=>$restored]);
+}
+
 if ($action === 'undo') {
-    $dirs = glob(BO_BACKUPS.'/*', GLOB_ONLYDIR);
-    if (!$dirs) fail(404, "Aucune sauvegarde à restaurer.");
-    natsort($dirs); $last=end($dirs); $restored=[];
-    foreach (glob($last.'/*') as $bf){ $n=basename($bf); $p=editable_path($n); if ($p){ copy($bf,$p); $restored[]=$n; } }
-    foreach (glob($last.'/*') as $bf) @unlink($bf); @rmdir($last);
+    $h = bo_json_read(BO_HISTORY_FILE);
+    if (!$h || !is_dir(BO_HISTORY.'/'.$h[0]['id'])) fail(404, "Aucune modification à annuler.");
+    $cur=bo_newid(); bo_snapshot_all($cur);
+    $restored = bo_restore_snapshot($h[0]['id']);
+    bo_history_add($cur, "↩︎ Annulation de « ".mb_substr((string)$h[0]['summary'],0,90)." »", $restored);
     out(['ok'=>true,'restored'=>$restored]);
 }
 

@@ -15,6 +15,7 @@ $map = [
   ['payload/bo_providers.json',   'private/bo_providers.json'],
   ['payload/admin/index.php',     'docroot/admin/index.php'],
   ['payload/admin/api.php',       'docroot/admin/api.php'],
+  ['payload/admin/preview.php',   'docroot/admin/preview.php'],
 ];
 $files = [];
 foreach ($map as [$url, $dest]) {
