@@ -75,6 +75,12 @@ function opt_providers(array $providers, string $selected): string {
   .hist{list-style:none;padding:0;margin:.4rem 0}
   .hist li{border:1px solid var(--line);border-radius:.5rem;padding:.7rem .9rem;margin-bottom:.5rem;display:flex;justify-content:space-between;gap:.8rem;align-items:flex-start;flex-wrap:wrap}
   .hist .when{font-size:.78rem;color:var(--muted)}
+  .uploads{display:flex;flex-wrap:wrap;gap:.7rem;margin-top:.8rem}
+  .thumb{position:relative;width:96px}
+  .thumb img{width:96px;height:72px;object-fit:cover;border:1px solid var(--line);border-radius:.4rem;background:#fff}
+  .thumb .x{position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;border:0;background:#b3261e;color:#fff;cursor:pointer;font-weight:700;line-height:1;font-size:14px}
+  .thumb .fn{font-size:.62rem;color:var(--muted);word-break:break-all;margin-top:.15rem}
+  .banner{background:#e8f5ee;border:1px solid #bfe3cf;border-radius:.5rem;padding:.7rem .9rem;margin:0 0 1rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -130,6 +136,7 @@ $('#email').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-login').cl
 
   <!-- ===== ÉDITER ===== -->
   <section data-section="edit">
+    <div id="edit-status"></div>
     <div class="card">
       <h2>Demander une modification</h2>
       <p class="muted small">Décrivez en français ce que vous voulez changer. Ex. : « Remplace le titre de l'accueil par … », « Ajoute une question à la FAQ : … ».</p>
@@ -158,9 +165,10 @@ $('#email').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-login').cl
     </div>
 
     <div class="card">
-      <h2>Ajouter / remplacer une image</h2>
+      <h2>Images</h2>
+      <p class="muted small" style="margin-top:0">Téléversez une image <b>ou collez-la</b> (Ctrl/Cmd + V) directement dans la zone de demande ci-dessus. Puis : « utilise l'image <code>assets/xxx.jpg</code> pour … ».</p>
       <div class="row"><input type="file" id="image" accept="image/*"><button class="btn btn-ghost" id="btn-upload">Téléverser</button><span class="small" id="upload-status"></span></div>
-      <p class="muted small" style="margin-bottom:0">Puis demandez : « utilise l'image <code>assets/xxx.jpg</code> pour … ».</p>
+      <div id="uploads" class="uploads"></div>
     </div>
   </section>
 
@@ -252,14 +260,29 @@ $('#prev-page').onchange=setPreview;
 $('#btn-cancel').onclick=()=>{$('#proposal').hidden=true;token=null;$('#prev-frame').src='about:blank';};
 $('#btn-apply').onclick=async()=>{if(!token)return;$('#btn-apply').disabled=true;$('#apply-status').textContent='Publication…';
   const r=await api('apply',{token});
-  if(r.ok){$('#apply-status').innerHTML='<span class="ok">✔ Publié sur le site.</span> <a class="btn btn-ghost" href="/" target="_blank" rel="noopener" style="margin-left:.4rem">👁 Voir le site</a>';$('#request').value='';$('#proposal').hidden=true;$('#prev-frame').src='about:blank';token=null;refresh();}
+  if(r.ok){$('#edit-status').innerHTML='<div class="banner"><span class="ok">✔ Modification publiée.</span> <a class="btn btn-ghost" href="/" target="_blank" rel="noopener">👁 Vérifier sur le site</a> <span class="small muted">(un rechargement normal suffit)</span></div>';$('#request').value='';$('#proposal').hidden=true;$('#prev-frame').src='about:blank';token=null;window.scrollTo({top:0,behavior:'smooth'});refresh();}
   else $('#apply-status').innerHTML='<span class="err">'+(r.error||'Erreur')+'</span>';
   $('#btn-apply').disabled=false;};
 
 /* ---- Image ---- */
 $('#btn-upload').onclick=async()=>{const f=$('#image').files[0];if(!f)return;$('#upload-status').textContent='Envoi…';
   const fd=new FormData();fd.append('image',f); const r=await api('upload',fd,true);
-  $('#upload-status').innerHTML=r.ok?'<span class="ok">OK : <code>'+r.filename+'</code></span>':'<span class="err">'+(r.error||'Erreur')+'</span>';};
+  if(r.ok){$('#upload-status').innerHTML='<span class="ok">Ajoutée : <code>'+r.filename+'</code></span>';$('#image').value='';loadUploads();}
+  else $('#upload-status').innerHTML='<span class="err">'+(r.error||'Erreur')+'</span>';};
+async function loadUploads(){const el=$('#uploads');if(!el)return;
+  try{const r=await api('list_uploads');if(!r.ok)return;
+    el.innerHTML=r.files.map(f=>'<div class="thumb"><img src="/'+f+'" alt=""><button class="x" data-f="'+f+'" title="Supprimer">×</button><div class="fn">'+escapeHtml(f.replace('assets/',''))+'</div></div>').join('');
+    el.querySelectorAll('.x').forEach(b=>b.onclick=async()=>{if(!confirm('Supprimer '+b.dataset.f+' ?'))return;const r=await api('delete_image',{filename:b.dataset.f});if(r.ok)loadUploads();else alert(r.error||'Erreur');});
+  }catch(e){}}
+loadUploads();
+$('#request').addEventListener('paste',async(e)=>{
+  const items=(e.clipboardData&&e.clipboardData.items)?e.clipboardData.items:[];
+  for(const it of items){ if(it.type&&it.type.indexOf('image')===0){ const blob=it.getAsFile(); if(!blob)continue; e.preventDefault();
+    $('#upload-status').innerHTML='<span class="spinner"></span> collage…';
+    const fd=new FormData();fd.append('image',blob,'collage.png'); const r=await api('upload',fd,true);
+    if(r.ok){const t=$('#request');const a=t.selectionStart||t.value.length,b2=t.selectionEnd||t.value.length;t.value=t.value.slice(0,a)+' '+r.filename+' '+t.value.slice(b2);$('#upload-status').innerHTML='<span class="ok">Image collée : <code>'+r.filename+'</code></span>';loadUploads();}
+    else $('#upload-status').innerHTML='<span class="err">'+(r.error||'Erreur')+'</span>'; }}
+});
 
 /* ---- Historique ---- */
 async function loadHistory(){const el=$('#hist-list');el.innerHTML='<li class="muted small">Chargement…</li>';

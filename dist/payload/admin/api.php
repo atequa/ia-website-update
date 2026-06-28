@@ -65,7 +65,7 @@ if (!$user) fail(401, 'Session expirée. Reconnectez-vous.');
 if ($action === 'logout') { bo_logout(); out(['ok'=>true]); }
 
 $ctrl = bo_control_state();
-if (in_array($action,['propose','apply','undo','upload','update','set_key','set_provider'],true) && !$ctrl['enabled'])
+if (in_array($action,['propose','apply','undo','restore','upload','delete_image','update','set_key','set_provider'],true) && !$ctrl['enabled'])
     fail(403, $ctrl['message'] !== '' ? $ctrl['message'] : "Accès suspendu. Contactez votre prestataire.");
 if (in_array($action,['set_key','set_provider'],true) && $ctrl['mode']==='managed')
     fail(403, "Le fournisseur et la clé sont gérés par votre prestataire.");
@@ -226,7 +226,35 @@ if ($action === 'upload') {
     while (is_file($dest)){ $dest=BO_DOCROOT.'/assets/'.$base.'-'.($i++).'.'.$ext; }
     if (!move_uploaded_file($f['tmp_name'],$dest)) fail(500, "Échec de l'enregistrement.");
     @chmod($dest,0644);
-    out(['ok'=>true,'filename'=>'assets/'.basename($dest)]);
+    $fn = 'assets/'.basename($dest);
+    $up = bo_json_read(BO_UPLOADS_FILE); if (!in_array($fn,$up,true)) { $up[]=$fn; bo_json_write(BO_UPLOADS_FILE,$up); }
+    out(['ok'=>true,'filename'=>$fn]);
+}
+
+const BO_CORE_ASSETS = ['logo.svg','portrait.webp','portrait.jpg','portrait.png','og-image.jpg','og-image.png','favicon.ico','favicon-32.png','favicon-180.png'];
+if ($action === 'list_uploads') {
+    $up = bo_json_read(BO_UPLOADS_FILE);
+    // inclure aussi les images présentes dans /assets non protégées (ex. uploads antérieurs au suivi)
+    foreach (glob(BO_DOCROOT.'/assets/*') as $f) {
+        if (!is_file($f)) continue; $b = basename($f);
+        $ext = strtolower(pathinfo($b, PATHINFO_EXTENSION));
+        if (!in_array($ext, ['jpg','jpeg','png','webp','gif','svg'], true)) continue;
+        if (in_array($b, BO_CORE_ASSETS, true)) continue;
+        $rel = 'assets/'.$b; if (!in_array($rel, $up, true)) $up[] = $rel;
+    }
+    $up = array_values(array_filter($up, fn($f)=>is_file(BO_DOCROOT.'/'.$f)));
+    bo_json_write(BO_UPLOADS_FILE, $up);
+    out(['ok'=>true,'files'=>$up]);
+}
+
+if ($action === 'delete_image') {
+    $fn = (string)($_POST['filename'] ?? '');
+    $up = bo_json_read(BO_UPLOADS_FILE);
+    if (!in_array($fn,$up,true)) fail(404, "Image inconnue.");   // on ne supprime QUE des images téléversées ici
+    $rp = realpath(BO_DOCROOT.'/'.$fn); $base = realpath(BO_DOCROOT.'/assets');
+    if ($rp && $base && strpos($rp,$base)===0 && is_file($rp)) @unlink($rp);
+    bo_json_write(BO_UPLOADS_FILE, array_values(array_diff($up,[$fn])));
+    out(['ok'=>true]);
 }
 
 fail(400, "Action inconnue.");
