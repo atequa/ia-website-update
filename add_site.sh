@@ -29,7 +29,11 @@ sed -e "s#__SITE_NAME__#$SITE_NAME#g" -e "s#__MAIL_FROM__#$MAIL_FROM#g" -e "s#__
     "$CEN/install/private/bo_config.template.php" > "$SITE/private/bo_config.php"
 php -r '$p=$argv[1];$s=file_get_contents($p);$s=preg_replace("/const BO_EDITABLE = \[[^\]]*\];/","const BO_EDITABLE = ".$argv[2].";",$s);file_put_contents($p,$s);' "$SITE/private/bo_config.php" "$EDITABLE"
 php -l "$SITE/private/bo_config.php" >/dev/null
-echo "✓ bo_config.php généré ($SITE_ID — home $HOME_DIR — mode $MODE — éditables $EDITABLE)"
+# bo_path.php : indique aux fichiers admin (docroot, payload partagé) où trouver le privé (chemin ABSOLU par site)
+mkdir -p "$SITE/admin"
+printf "<?php define('BO_PRIVATE_DIR', '%s');\n" "$PRIVDIR" > "$SITE/admin/bo_path.php"
+php -l "$SITE/admin/bo_path.php" >/dev/null
+echo "✓ bo_config.php + bo_path.php générés ($SITE_ID — privé $PRIVDIR — mode $MODE — éditables $EDITABLE)"
 
 O2_ENV="$ENVF" "$CEN/deploy_bo.sh" "$SITE"
 echo ""

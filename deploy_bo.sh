@@ -23,6 +23,7 @@ up(){ # <dir local> <dir distant> <fichiers...>
 }
 
 up "$CEN/dist/payload/admin" "$RLIVE/admin" '*.php'
+up "$SITE/admin" "$RLIVE/admin" 'bo_path.php'      # par site : localise le privé (hors payload)
 ( cd "$CEN/install/admin" && lftp -u "$U,$P" "ftp://$H" -e \
    "set ssl:verify-certificate no; cd $RLIVE/admin; put .htaccess -o .htaccess; bye" ) 2>&1 | grep -iE 'error|denied' || true
 up "$CEN/dist/payload" "$RPRIV" 'bo_llm.php bo_providers.json'

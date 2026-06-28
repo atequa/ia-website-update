@@ -1,9 +1,10 @@
 <?php
 /** Back-office V3 — backend (auth magic link, multi-fournisseurs, auto-update). */
 declare(strict_types=1);
-require '/home/bafo9702/private/bo_auth.php';
-require '/home/bafo9702/private/bo_llm.php';
-require '/home/bafo9702/private/bo_control.php';
+require __DIR__ . '/bo_path.php';                 // définit BO_PRIVATE_DIR (généré par site, hors payload)
+require BO_PRIVATE_DIR . '/bo_auth.php';
+require BO_PRIVATE_DIR . '/bo_llm.php';
+require BO_PRIVATE_DIR . '/bo_control.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
@@ -118,7 +119,7 @@ if ($action === 'set_key') {
 }
 
 if ($action === 'update') {
-    require '/home/bafo9702/private/bo_updater.php';
+    require BO_PRIVATE_DIR . '/bo_updater.php';
     out(bo_run_update());
 }
 

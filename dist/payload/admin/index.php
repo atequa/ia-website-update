@@ -1,8 +1,9 @@
 <?php
 declare(strict_types=1);
-require '/home/bafo9702/private/bo_auth.php';
-require '/home/bafo9702/private/bo_llm.php';
-require '/home/bafo9702/private/bo_control.php';
+require __DIR__ . '/bo_path.php';                 // définit BO_PRIVATE_DIR (généré par site, hors payload)
+require BO_PRIVATE_DIR . '/bo_auth.php';
+require BO_PRIVATE_DIR . '/bo_llm.php';
+require BO_PRIVATE_DIR . '/bo_control.php';
 
 // L'admin ne doit JAMAIS être mis en cache (sinon on re-sert la page de connexion en cache → boucle).
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');

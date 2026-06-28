@@ -6,7 +6,8 @@
  * changements de style/script soient visibles. Auth requise.
  */
 declare(strict_types=1);
-require '/home/bafo9702/private/bo_auth.php';
+require __DIR__ . '/bo_path.php';                 // définit BO_PRIVATE_DIR (généré par site, hors payload)
+require BO_PRIVATE_DIR . '/bo_auth.php';
 
 if (!bo_current_user()) { http_response_code(403); exit('Non autorisé'); }
 
