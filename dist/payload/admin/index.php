@@ -222,10 +222,11 @@ $$('.topnav a[data-view]').forEach(a=>a.onclick=()=>{
 async function refresh(){try{const s=await api('status');
   if($('#ver'))$('#ver').textContent=s.version;
   const _p=s.providers.find(x=>x.id===s.selected);
-  if($('#quota'))$('#quota').textContent='📊 '+s.calls_today+' req · ~'+(s.tokens_today||0).toLocaleString('fr-FR')+' tk'+(_p&&_p.free?' (gratuit)':'');
+  if($('#quota')){const pct=s.cap?Math.round(s.calls_today/s.cap*100):0;const q=$('#quota');q.textContent='📊 '+pct+'%';q.title=s.calls_today+'/'+s.cap+' requêtes aujourd\'hui · ~'+(s.tokens_today||0).toLocaleString('fr-FR')+' tokens'+(_p&&_p.free?' · fournisseur gratuit':'');}
   const pp=s.providers.find(x=>x.id===s.selected);
   if($('#prov-status'))$('#prov-status').textContent=(pp&&pp.has_key)?'clé en place ✔':'⚠️ aucune clé pour ce fournisseur';
-  if($('#usage-line'))$('#usage-line').innerHTML='📊 Via ce site aujourd\'hui : <b>'+s.calls_today+'</b> requête(s) · <b>~'+(s.tokens_today||0).toLocaleString('fr-FR')+'</b> tokens (plafond local '+s.cap+' req/j).'+(pp&&pp.free_note?'<br>Fournisseur <b>'+escapeHtml(pp.label)+'</b> : quota '+escapeHtml(pp.free_note)+'.':'')+'<br><span class="muted">Le quota gratuit restant exact se vérifie sur la console du fournisseur.</span>';
+  if($('#usage-line')){const pct=s.cap?Math.round(s.calls_today/s.cap*100):0;
+    $('#usage-line').innerHTML='📊 Aujourd\'hui via ce site : <b>'+s.calls_today+'/'+s.cap+'</b> requêtes (<b>'+pct+'%</b> du quota quotidien) · <b>~'+(s.tokens_today||0).toLocaleString('fr-FR')+'</b> tokens.'+(pp&&pp.free_note?'<br>Fournisseur <b>'+escapeHtml(pp.label)+'</b> : quota '+escapeHtml(pp.free_note)+'.':'')+'<br><span class="muted">↻ Compteur remis à zéro chaque jour à minuit (heure du serveur). Le quota gratuit restant exact se vérifie sur la console du fournisseur.</span>';}
 }catch(e){}}
 refresh();
 $('#logout').onclick=async e=>{e.preventDefault();await api('logout');location.reload();};
