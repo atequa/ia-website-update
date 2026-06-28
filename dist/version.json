@@ -1,5 +1,5 @@
 {
-    "version": "2026.06.28-4",
+    "version": "2026.06.28-5",
     "files": [
         {
             "url": "payload/bo_llm.php",
@@ -14,7 +14,7 @@
         {
             "url": "payload/admin/index.php",
             "dest": "docroot/admin/index.php",
-            "sha256": "1333b12727a789c0fcfc58a9212fb08c94322aafc43df715f1a46f297e3d875d"
+            "sha256": "c6148bd07a4b248cfe7d058481b56a64f83fa832466285af1a55bc356c0cb74a"
         },
         {
             "url": "payload/admin/api.php",
@@ -27,5 +27,5 @@
             "sha256": "ea018d92ca63a015554a65263500ce37728711e3d1e95ccddad4c4eebbca6fbf"
         }
     ],
-    "sig": "HiMwn57C+CupOkIPndzgJS+xJvccGbvXHHmRvM9lDj1olZ+PvYIt8ASy/ChdcMJxUIQbivAnWchUbAbIgrllCg=="
+    "sig": "+HyQupGj+B25O8un0Ol3INKI38MA6FnumF/wnc3pJZDPMkItLU0bmFXBmzUA9FCPefJC5/WrG1Wm/78WjEGNCQ=="
 }

@@ -122,6 +122,7 @@ $('#email').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-login').cl
     <a data-view="edit" class="active">✏️ Éditer</a>
     <a data-view="history">🕘 Historique</a>
     <a data-view="settings">⚙️ Réglages</a>
+    <a href="/" target="_blank" rel="noopener">👁 Voir le site</a>
   </nav>
   <div class="meta" id="meta"><?=htmlspecialchars($user)?> · <a class="logout" href="#" id="logout">déconnexion</a></div>
 </header>
@@ -200,8 +201,8 @@ async function api(action,data,isForm){const opt={method:'POST'};
   const r=await fetch('api.php',opt); if(r.status===401){location.reload();throw new Error('auth');} return r.json();}
 
 /* ---- navigation par onglets ---- */
-$$('.topnav a').forEach(a=>a.onclick=()=>{
-  $$('.topnav a').forEach(x=>x.classList.remove('active')); a.classList.add('active');
+$$('.topnav a[data-view]').forEach(a=>a.onclick=()=>{
+  $$('.topnav a[data-view]').forEach(x=>x.classList.remove('active')); a.classList.add('active');
   const v=a.dataset.view; $$('section[data-section]').forEach(s=>s.hidden=(s.dataset.section!==v));
   if(v==='history') loadHistory();
 });
