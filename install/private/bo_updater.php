@@ -1,10 +1,14 @@
 <?php
 /**
  * Back-office V3 — mise à jour à distance SIGNÉE (racine de confiance, jamais MAJ à distance).
- * Télécharge version.json depuis le repo central, vérifie la signature Ed25519 avec la clé
- * publique locale, vérifie le sha256 de chaque fichier, PUIS écrit (tout ou rien).
+ * Télécharge version.json depuis le repo central, vérifie la signature RSA-SHA256 (OpenSSL) avec
+ * la clé publique locale, vérifie le sha256 de chaque fichier, PUIS écrit (tout ou rien).
  */
 require_once __DIR__ . '/bo_config.php';
+
+function bo_pubkey_pem(): string {
+    return "-----BEGIN PUBLIC KEY-----\n" . chunk_split(BO_UPDATE_PUBKEY, 64, "\n") . "-----END PUBLIC KEY-----\n";
+}
 
 function bo_canonical(array $v): string {
     $s = (string)($v['version'] ?? '');
@@ -27,8 +31,8 @@ function bo_dest_path(string $dest): ?string {
 }
 
 function bo_run_update(): array {
-    if (!function_exists('sodium_crypto_sign_verify_detached'))
-        return ['ok'=>false,'error'=>"Vérification de signature indisponible sur ce serveur (libsodium manquant)."];
+    if (!function_exists('openssl_verify'))
+        return ['ok'=>false,'error'=>"Vérification de signature indisponible sur ce serveur (OpenSSL manquant)."];
 
     $raw = bo_fetch(BO_UPDATE_BASEURL . 'version.json');
     if ($raw === null) return ['ok'=>false,'error'=>"Source de mise à jour injoignable (repo pas encore publié ?)."];
@@ -36,11 +40,10 @@ function bo_run_update(): array {
     if (!is_array($v) || empty($v['version']) || empty($v['files']) || empty($v['sig']))
         return ['ok'=>false,'error'=>"Manifeste de mise à jour invalide."];
 
-    // Signature
+    // Signature (RSA-SHA256, OpenSSL)
     $sig = base64_decode((string)$v['sig'], true);
-    $pub = base64_decode(BO_UPDATE_PUBKEY, true);
-    if ($sig === false || $pub === false ||
-        !sodium_crypto_sign_verify_detached($sig, bo_canonical($v), $pub))
+    if ($sig === false ||
+        openssl_verify(bo_canonical($v), $sig, bo_pubkey_pem(), OPENSSL_ALGO_SHA256) !== 1)
         return ['ok'=>false,'error'=>"Signature invalide — mise à jour refusée (sécurité)."];
 
     // Déjà à jour ?

@@ -12,7 +12,8 @@ ENVF="${O2_ENV:?O2_ENV requis (le .env du site)}"
 getval(){ grep -m1 "^$1=" "$ENVF" | cut -d= -f2-; }
 U=$(getval O2_CPANEL_USER); P=$(getval O2_CPANEL_PASSWORD)
 H=$(getval O2_FTP_HOST); [ -z "$H" ] && H=$(getval O2_CPANEL_HOST)
-RLIVE=$(getval O2_REMOTE_LIVE); RPRIV=$(getval O2_PRIVATE_REMOTE)
+RLIVE="${O2_DOCROOT_REMOTE:-$(getval O2_REMOTE_LIVE)}"; RPRIV=$(getval O2_PRIVATE_REMOTE)
+# O2_DOCROOT_REMOTE permet de cibler la preprod (ex: clients/x_fr/sd/preprod) au lieu du live.
 
 up(){ # <dir local> <dir distant> <fichiers...>
   local d="$1" r="$2"; shift 2

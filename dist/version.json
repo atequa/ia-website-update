@@ -1,5 +1,5 @@
 {
-    "version": "2026.06.28-13",
+    "version": "2026.06.28-14",
     "files": [
         {
             "url": "payload/bo_llm.php",
@@ -27,5 +27,5 @@
             "sha256": "ea018d92ca63a015554a65263500ce37728711e3d1e95ccddad4c4eebbca6fbf"
         }
     ],
-    "sig": "cvoYCZuTg8SqCI1BvNprps6nkgFUYKMT4uMZB6hrhEu0dqGjQn25heVwphTgXd/ZkPXqgjSOK8RuiXHiJGouAQ=="
+    "sig": "tglVUxzCs1iJUg22VJl5MvLZKTNNcUn0lNjvJLjpzo9NjSZTpHvdjBt5k5LZsVOjFxMAMsC/k3TRpbhEWMaNfW9yDiS0Nch4A3rXenVtPRrtpl1IuITM8dffumxju8q5stvaul+OtXaInpAU6jcTtGak4lHmeqpEkzdkP2DQyqpTLAzcrQazuqCaKjIpe1hp47r+d334ejz0WDfDPX2QfQl8GpPk2rQyjIQFdQAakSRGKS6/dD6sYXQdKQ6esGl5VILHY/YBGCOWufcOqLEQsjYfP9yEqnOpxa/5xTDbIneCfD/wioeAsuKf8nWN/dNWaAvB0mvHRlMKZCnCgk/i8A=="
 }

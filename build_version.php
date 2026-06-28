@@ -1,13 +1,15 @@
 <?php
 /**
- * Régénère bo-package/dist/version.json signé (Ed25519) à partir des fichiers payload.
- * Usage :  BO_SEC="<clé privée base64>" php build_version.php 2026.06.28-2
- * (clé privée = BO_UPDATE_SECKEY dans .env.o2switch.local — JAMAIS dans le repo)
- * Puis pousser bo-package/dist/** vers le repo GitHub atequa/site-backoffice (dossier dist/).
+ * Régénère bo-package/dist/version.json signé (RSA-SHA256, OpenSSL — portable partout) à partir des fichiers payload.
+ * Usage :  BO_SIGN_PRIVKEY_B64="<clé privée PEM base64>" php build_version.php 2026.06.28-2
+ * (clé privée = BO_SIGN_PRIVKEY_B64 dans .env.backoffice — JAMAIS dans le repo ni sur un site)
+ * Puis pousser bo-package/dist/** vers le repo GitHub atequa/ia-website-update (dossier dist/).
  */
-$sec = base64_decode(getenv('BO_SEC') ?: '');
+$privPem = base64_decode(getenv('BO_SIGN_PRIVKEY_B64') ?: '');
 $ver = $argv[1] ?? null;
-if (strlen($sec) !== 64 || !$ver) { fwrite(STDERR, "BO_SEC (64o) + argument version requis\n"); exit(1); }
+if (!$privPem || !$ver) { fwrite(STDERR, "BO_SIGN_PRIVKEY_B64 (clé privée PEM base64) + argument version requis\n"); exit(1); }
+$pk = openssl_pkey_get_private($privPem);
+if ($pk === false) { fwrite(STDERR, "Clé privée RSA invalide\n"); exit(1); }
 
 $root = __DIR__ . '/dist/';
 $map = [
@@ -25,7 +27,8 @@ foreach ($map as [$url, $dest]) {
 }
 $canon = $ver;
 foreach ($files as $f) $canon .= "\n" . $f['url'] . "\t" . $f['dest'] . "\t" . $f['sha256'];
-$sig = base64_encode(sodium_crypto_sign_detached($canon, $sec));
+openssl_sign($canon, $rawsig, $pk, OPENSSL_ALGO_SHA256);
+$sig = base64_encode($rawsig);
 file_put_contents($root . 'version.json',
     json_encode(['version' => $ver, 'files' => $files, 'sig' => $sig], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 echo "version.json signé : $ver\n";

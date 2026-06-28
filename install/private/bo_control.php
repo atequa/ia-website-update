@@ -2,7 +2,7 @@
 /**
  * Back-office V3 — plan de contrôle à distance (kill switch + mode géré/autonome).
  * Racine de confiance LOCALE (jamais mise à jour à distance) : vérifie la signature
- * Ed25519 de control.json avec la clé publique locale. Cache + tolérance de panne :
+ * RSA-SHA256 (OpenSSL) de control.json avec la clé publique locale. Cache + tolérance de panne :
  *  - un "kill" déjà reçu PERSISTE même si GitHub devient injoignable ;
  *  - si aucun contrôle n'existe encore, on ne bloque pas (fail-open) et on ne re-tente
  *    qu'une fois par TTL (pas de latence à chaque chargement).
@@ -14,9 +14,11 @@
 require_once __DIR__ . '/bo_config.php';
 
 function bo_ctrl_verify(string $payload, string $sig): bool {
-    if (!function_exists('sodium_crypto_sign_verify_detached')) return false;
-    $s = base64_decode($sig, true); $p = base64_decode(BO_UPDATE_PUBKEY, true);
-    return $s !== false && $p !== false && sodium_crypto_sign_verify_detached($s, $payload, $p);
+    if (!function_exists('openssl_verify')) return false;
+    $s = base64_decode($sig, true);
+    if ($s === false) return false;
+    $pem = "-----BEGIN PUBLIC KEY-----\n" . chunk_split(BO_UPDATE_PUBKEY, 64, "\n") . "-----END PUBLIC KEY-----\n";
+    return openssl_verify($payload, $s, $pem, OPENSSL_ALGO_SHA256) === 1;
 }
 function bo_ctrl_parse(string $payload): array {
     $def = ['enabled'=>true, 'mode'=>BO_DEFAULT_MODE, 'message'=>''];
