@@ -115,7 +115,8 @@ function bo_edit_gemini(array $p, string $key, string $rules, string $corpus, st
     $body = [
         'system_instruction'=>['parts'=>[['text'=>$rules."\n\n".bo_json_instr()]]],
         'contents'=>[['role'=>'user','parts'=>[['text'=>"CONTENU ACTUEL DES FICHIERS :\n".$corpus."\n\nDemande :\n".$req]]]],
-        'generationConfig'=>['response_mime_type'=>'application/json','maxOutputTokens'=>BO_MAX_TOKENS],
+        // thinkingBudget=0 : désactive la phase de "réflexion" de Gemini 2.5 Flash → réponses bien plus rapides (suffisant pour de l'édition).
+        'generationConfig'=>['response_mime_type'=>'application/json','maxOutputTokens'=>BO_MAX_TOKENS,'thinkingConfig'=>['thinkingBudget'=>0]],
     ];
     [$http,$resp,$err] = bo_http($url, $body, ['content-type: application/json']);
     if ($resp===null) return ['ok'=>false,'error'=>"Connexion impossible : $err"];
