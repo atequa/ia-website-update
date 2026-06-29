@@ -29,6 +29,12 @@ function bo_dest_path(string $dest): ?string {
     if (strpos($dest, 'private/') === 0) return BO_PRIVATE . '/' . substr($dest, 8);
     return null;
 }
+function bo_ver_parts(string $v): array { preg_match_all('/\d+/', $v, $m); return array_map('intval', $m[0]); }
+function bo_ver_is_older(string $a, string $b): bool {   // $a est-il STRICTEMENT antérieur à $b ?
+    $pa = bo_ver_parts($a); $pb = bo_ver_parts($b); $n = max(count($pa), count($pb));
+    for ($i = 0; $i < $n; $i++) { $x = $pa[$i] ?? 0; $y = $pb[$i] ?? 0; if ($x !== $y) return $x < $y; }
+    return false;
+}
 
 function bo_run_update(): array {
     if (!function_exists('openssl_verify'))
@@ -49,6 +55,9 @@ function bo_run_update(): array {
     // Déjà à jour ?
     $cur = is_file(BO_VERSION_FILE) ? (json_decode((string)file_get_contents(BO_VERSION_FILE), true)['version'] ?? '') : '';
     if ($cur === $v['version']) return ['ok'=>true,'updated'=>false,'version'=>$v['version'],'message'=>"Déjà à jour (".$v['version'].")."];
+    // Anti-rollback : refuser un manifeste de version ANTÉRIEURE (rejeu d'un vieux version.json signé).
+    if ($cur !== '' && bo_ver_is_older((string)$v['version'], $cur))
+        return ['ok'=>false,'error'=>"Version proposée (".$v['version'].") antérieure à l'installée (".$cur."). Mise à jour refusée (sécurité)."];
 
     // 1) Télécharger + vérifier TOUT en mémoire
     $pending = [];

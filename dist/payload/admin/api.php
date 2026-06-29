@@ -12,6 +12,16 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 function out($a){ echo json_encode($a, JSON_UNESCAPED_UNICODE); exit; }
 function fail($c,$m){ http_response_code($c); out(['ok'=>false,'error'=>$m]); }
 
+// CSRF : une action modifiante doit provenir de la même origine que le site.
+function bo_same_origin(): bool {
+    $self = preg_replace('/:\d+$/', '', strtolower((string)($_SERVER['HTTP_HOST'] ?? '')));
+    $src  = $_SERVER['HTTP_ORIGIN'] ?? ($_SERVER['HTTP_REFERER'] ?? '');
+    if ($src === '') return true;                // ni Origin ni Referer : SameSite reste la défense
+    $h = parse_url($src, PHP_URL_HOST);
+    if (!is_string($h) || $h === '') return false;
+    return strcasecmp(strtolower($h), $self) === 0;
+}
+
 @mkdir(BO_HISTORY, 0700, true);
 @mkdir(BO_PROPOSALS, 0700, true);
 
@@ -64,6 +74,11 @@ if ($action === 'login_request') {
 /* ---- Auth requise ---- */
 $user = bo_current_user();
 if (!$user) fail(401, 'Session expirée. Reconnectez-vous.');
+
+// CSRF : toutes les actions modifiantes doivent venir de la même origine.
+$BO_MUTATING = ['logout','set_provider','set_key','update','propose','apply','restore','undo','upload','delete_image'];
+if (in_array($action, $BO_MUTATING, true) && !bo_same_origin())
+    fail(403, "Requête bloquée (origine invalide). Rechargez la page et réessayez.");
 
 if ($action === 'logout') { bo_logout(); out(['ok'=>true]); }
 
@@ -161,6 +176,7 @@ if ($action === 'propose') {
         if ($new===''||$new===$old) continue;
         $changes[] = ['path'=>$name,'new_content'=>$new,'old_len'=>strlen($old),'new_len'=>strlen($new)];
     }
+    foreach (glob(BO_PROPOSALS.'/*.json') as $old) { if (is_file($old) && time()-filemtime($old) > 86400) @unlink($old); } // purge des brouillons > 24 h
     $token = bin2hex(random_bytes(8));
     file_put_contents(BO_PROPOSALS.'/'.$token.'.json', json_encode(['changes'=>$changes,'summary'=>$parsed['summary']], JSON_UNESCAPED_UNICODE), LOCK_EX);
     out(['ok'=>true,'token'=>$token,'summary'=>$parsed['summary'],
@@ -216,15 +232,17 @@ if ($action === 'undo') {
     out(['ok'=>true,'restored'=>$restored]);
 }
 
-const BO_UPLOAD_EXT = ['jpg','jpeg','png','webp','gif','svg','pdf','doc','docx','xls','xlsx','ppt','pptx','csv'];
-const BO_IMG_EXT    = ['jpg','jpeg','png','webp','gif','svg'];
+// SVG volontairement EXCLU des uploads : un .svg peut contenir du JavaScript et,
+// servi depuis /assets/ sur le domaine du site, exécuterait ce code (XSS stocké).
+const BO_UPLOAD_EXT = ['jpg','jpeg','png','webp','gif','pdf','doc','docx','xls','xlsx','ppt','pptx','csv'];
+const BO_IMG_EXT    = ['jpg','jpeg','png','webp','gif'];
 if ($action === 'upload') {
     if (empty($_FILES['image']) || $_FILES['image']['error']!==UPLOAD_ERR_OK) fail(422, "Aucun fichier reçu.");
     $f=$_FILES['image'];
     if ($f['size'] > 20*1024*1024) fail(422, "Fichier trop lourd (max 20 Mo).");
     $ext=strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
     if (!in_array($ext, BO_UPLOAD_EXT, true)) fail(422, "Type non autorisé. Acceptés : images, PDF, doc/xls/ppt, csv.");
-    if (in_array($ext, BO_IMG_EXT, true) && $ext!=='svg' && @getimagesize($f['tmp_name'])===false) fail(422, "Image illisible.");
+    if (in_array($ext, BO_IMG_EXT, true) && @getimagesize($f['tmp_name'])===false) fail(422, "Image illisible.");
     $head=@file_get_contents($f['tmp_name'],false,null,0,512);
     if ($head!==false && stripos($head,'<?php')!==false) fail(422, "Fichier refusé (contenu non autorisé).");
     $base=preg_replace('/[^a-zA-Z0-9_-]/','-', pathinfo($f['name'], PATHINFO_FILENAME));

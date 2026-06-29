@@ -1,5 +1,5 @@
 {
-    "version": "2026.06.28-15",
+    "version": "2026.06.29-1",
     "files": [
         {
             "url": "payload/bo_llm.php",
@@ -14,18 +14,18 @@
         {
             "url": "payload/admin/index.php",
             "dest": "docroot/admin/index.php",
-            "sha256": "2c0f4e9f39600aa8bd78afda2906d7f4bce16b7b11f16db3d51f2f7b9b661756"
+            "sha256": "f6b58ad543eb5d71a2d3a64a98bec41aaaac7f98e006c7291f2058c0525b8e24"
         },
         {
             "url": "payload/admin/api.php",
             "dest": "docroot/admin/api.php",
-            "sha256": "c517c32e959156b24756fc8ec581d294e8f074bd687bc59e9e78b56ad5152d2b"
+            "sha256": "b8296114ad778f39038e8d57bd01934c413bc9d0cde19f90b69ad849a5196d33"
         },
         {
             "url": "payload/admin/preview.php",
             "dest": "docroot/admin/preview.php",
-            "sha256": "9c1b482eaffbc01b0c35fea6e9848f3ca79196507a3d2a243ba96eb7c1de0571"
+            "sha256": "286cc4f24abd3d36c8f8eea276fe8545f9cf0bd1163920c57c763a385add6f3d"
         }
     ],
-    "sig": "mqFA/axvy59JpJNVu5YyNNcmG0vvp6xz1IfTxD4S6NpahRXpgt/LXmDV3KSjLpAnaM2j1PFytSMSNCIzLgcB3DMI6zhpF4S0LbkC7GKvy6wIaTynPz8X4kgsVozCCuQU+VToY8lxL9DuQFuDjqs1cYTwWkG7bNt1RvEZAO4g/kChlArHlm+WmgGE/LESSJNirK8Pf4OpN6BmKwTSKRm56J0rlGEcBM7K2YZo3c+lXVQpqTgrBfPcJ8HSTtMW3BRW2+qKu6a5AW5fPIA6x7zDKFEhVIDpoUqV+2ZsjaNG8KUYYzigq4z/zyQrF4Nhg71Kbxn2YvQ1lTV1Vb5JKVQ2xQ=="
+    "sig": "X/JQBTmka0KnYKREtaURyRsE8GirY0ht+auBh3n4H17XRw1G/qiBcqvo54xKUvSHd7KGDmtgr2YFb1GvwSdemB+C67iX0gCpva6Yw8XuMLF7W07QOCAhEOW08s/+7unDvR6eGpdVnVmpE/fUOZ7dPF/noDl/SyMnMpTGQIe5Gch1J3fhIn747HkOYYamRvTDkUqn+GmN2TYxju/ARwDZ1uTT8XYb3qg/1msvr3QW7qkUAS6DT4nBrCqI1XRYLKIGImBq/pFcNc4wIuCsksdNtU8PXGHNPbrbK7eEa58sJUTNq+Ff9xQb3BNDGnzgU7H2QN2us4vRsP4VmEzv3nm/5Q=="
 }

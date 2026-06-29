@@ -32,6 +32,12 @@ $ct = [
 header('Content-Type: '.$ct);
 header('X-Robots-Tag: noindex, nofollow');
 header('Cache-Control: no-store');
+// L'aperçu peut contenir du HTML proposé par l'IA : on interdit TOUT script (script-src 'none')
+// pour qu'aucun code injecté ne s'exécute dans la session de l'éditeur. Styles/images conservés
+// pour que le rendu visuel reste fidèle.
+header("Content-Security-Policy: default-src 'self' data:; script-src 'none'; "
+     . "style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; "
+     . "object-src 'none'; base-uri 'none'; form-action 'none'");
 
 if ($ext === 'html') {
     foreach ($map as $f => $_) {

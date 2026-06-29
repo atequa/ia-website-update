@@ -168,7 +168,7 @@ $('#email').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-login').cl
     <div class="card">
       <h2>Fichiers (images, PDF, documents)</h2>
       <p class="muted small" style="margin-top:0">Téléversez une image ou un document (PDF, Word, Excel…) <b>— ou collez une image</b> (Ctrl/Cmd + V) dans la zone de demande ci-dessus. Puis : « remplace la carte PDF par <code>assets/xxx.pdf</code> » ou « utilise l'image <code>assets/xxx.jpg</code> pour … ».</p>
-      <div class="row"><input type="file" id="image" accept=".jpg,.jpeg,.png,.webp,.gif,.svg,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv"><button class="btn btn-ghost" id="btn-upload">Téléverser</button><span class="small" id="upload-status"></span></div>
+      <div class="row"><input type="file" id="image" accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv"><button class="btn btn-ghost" id="btn-upload">Téléverser</button><span class="small" id="upload-status"></span></div>
       <div id="uploads" class="uploads"></div>
     </div>
   </section>

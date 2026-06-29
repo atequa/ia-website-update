@@ -76,10 +76,22 @@ function bo_verify_magic(string $tok): ?string {
     // (aperçu chat, anti-spam Outlook/Gmail SafeLinks) grillent un lien à usage unique.
     return $e['email'] ?? null;
 }
+function bo_safe_host(): string {
+    // L'hôte du magic link ne doit JAMAIS être pris tel quel dans HTTP_HOST (un pirate
+    // peut le falsifier pour détourner le lien). On n'accepte HTTP_HOST que s'il
+    // correspond au domaine de l'email d'envoi (ou un de ses sous-domaines, ex. preprod.) ;
+    // sinon on retombe sur ce domaine.
+    $parts = explode('@', BO_MAIL_FROM); $maild = strtolower(trim((string)end($parts)));
+    $host  = preg_replace('/[^a-z0-9.\-:]/', '', strtolower((string)($_SERVER['HTTP_HOST'] ?? '')));
+    $bare  = preg_replace('/:\d+$/', '', $host);
+    if ($maild !== '' && ($bare === $maild ||
+        (strlen($bare) > strlen($maild) + 1 && substr($bare, -(strlen($maild) + 1)) === '.' . $maild)))
+        return $host;
+    return $maild !== '' ? $maild : $bare;
+}
 function bo_magic_url(string $tok): string {
     $scheme = bo_is_https() ? 'https' : 'http';
-    $host = $_SERVER['HTTP_HOST'] ?? 'educ-care.com';
-    return $scheme . '://' . $host . '/admin/?login=' . urlencode($tok);
+    return $scheme . '://' . bo_safe_host() . '/admin/?login=' . urlencode($tok);
 }
 function bo_send_magic_link(string $email, string $url): bool {
     $subject = '=?UTF-8?B?' . base64_encode('Votre lien de connexion — ' . BO_SITE_NAME) . '?=';
