@@ -273,8 +273,9 @@ $('#btn-update').onclick=async()=>{$('#update-status').innerHTML='<span class="s
 
 /* ---- Édition : préparer / aperçu / appliquer ---- */
 $('#btn-propose').onclick=async()=>{const req=$('#request').value.trim();if(!req)return;
-  $('#btn-propose').disabled=true;$('#propose-status').innerHTML='<span class="spinner"></span> L\'assistant réfléchit…';$('#proposal').hidden=true;
-  try{const r=await api('propose',{request:req});
+  $('#btn-propose').disabled=true;$('#proposal').hidden=true;
+  const t0=Date.now();const tick=()=>{const s=Math.round((Date.now()-t0)/1000);if($('#propose-status'))$('#propose-status').innerHTML='<span class="spinner"></span> L\'assistant travaille… '+s+' s'+(s>=20?' <span class="muted">(certains modèles prennent 1 à 2 min)</span>':'');};tick();const iv=setInterval(tick,1000);
+  try{const r=await api('propose',{request:req});clearInterval(iv);
     if(!r.ok){$('#propose-status').innerHTML='<span class="err">'+(r.error==='needs_key'?'Aucune clé pour le fournisseur (onglet Réglages).':(r.error||'Erreur'))+'</span>';}
     else{token=r.token;$('#prop-summary').textContent=r.summary;
       $('#prop-files').innerHTML=r.changes.length?'<p class="small muted">Fichiers modifiés :</p><ul class="files">'+r.changes.map(c=>'<li><span class="pill">'+c.path+'</span></li>').join('')+'</ul>':'<p class="small muted">Aucun fichier à modifier (voir l\'explication).</p>';
@@ -286,7 +287,7 @@ $('#btn-propose').onclick=async()=>{const req=$('#request').value.trim();if(!req
       setPreview();
       $('#proposal').hidden=false;
       $('#propose-status').innerHTML='<span class="small muted">'+r.provider+' · '+(r.tokens.in+r.tokens.out)+' tokens</span>';refresh();}
-  }catch(e){if(e.message!=='auth')$('#propose-status').innerHTML='<span class="err">Erreur réseau</span>';}
+  }catch(e){clearInterval(iv);if(e.message!=='auth')$('#propose-status').innerHTML='<span class="err">Erreur réseau</span>';}
   $('#btn-propose').disabled=false;};
 function setPreview(){ if(!token)return; const pg=$('#prev-page').value||'index.html';
   $('#prev-frame').src='preview.php?token='+token+'&path='+encodeURIComponent(pg)+'&t='+Date.now(); }
