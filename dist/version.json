@@ -4,12 +4,12 @@
         {
             "url": "payload/bo_llm.php",
             "dest": "private/bo_llm.php",
-            "sha256": "909be0d730d8bfb44400f4547d285db67a6ad81be03b0a375d4a1b5f8d752d93"
+            "sha256": "219cd4b1c26d8ff473070a2f1dc788ab3c6123700c6660a71e24113edd11d966"
         },
         {
             "url": "payload/bo_providers.json",
             "dest": "private/bo_providers.json",
-            "sha256": "d3b86c90bf9bf9bcb1a5b13e884844204c6ab92883aef2514463b950a2e1fe25"
+            "sha256": "ef4141bbf0d942a36a366669c64dc7aef2d41a1e242aed5540007a479768432d"
         },
         {
             "url": "payload/admin/index.php",
@@ -19,7 +19,7 @@
         {
             "url": "payload/admin/api.php",
             "dest": "docroot/admin/api.php",
-            "sha256": "52a399f4faa94c3e3712035ef591246c413f54c317fb1daaf63a91171b0fc4f2"
+            "sha256": "8f50fd7f4af9a51babfd162f8ef21275e735a3de142692ad69fc85304fc860af"
         },
         {
             "url": "payload/admin/preview.php",
@@ -27,5 +27,5 @@
             "sha256": "d813518dda51377f4f575674879f958dd813bcd16a93e3df08c70424ac5bf0cf"
         }
     ],
-    "sig": "VG8ai/tbzBNIw9hxIuJjwgsHA4GOgGh0NCc0hA4WyoDh90YS1rxfUmHBnqPkDSaY/bstMuaZDP1gBCB64wX8S3VPG5aGPitYVINxbcQd6PEvLSm5uSLBCrQ8PHMVd91C9gKQBW2ucRtpnOQfeol0stZ+YmreHi2nOFeQd0T6zswWwqcOJzy50TKKjtpl6g6E9IXrZ7roDJuJ3j/pmCsHb7rQsslQ55EcoD1GAbgY3q2z/2iGYwKtrPCqQsfXuvKsBDkgZXNEIbgKvnwWkTKOuwErQCg8CSv3sYJigMrjEXq3u12m4+RgHzRYrh0fraJ39DSpkVrXD1FT/1IcRVbf/g=="
+    "sig": "CS3yxyq3elzhU/6Uer6ULz7KfosvJf2bmW/mJYydrhpqPtKRYqF6cNLn7O4ZcRN3m4JChet3mw16ibrWSxZ+lATf7MASC3T8P93ZoHdZEApkJbIFRgHOmvEa4iZfIFNPkaQxlsx/CIJqb6K69cigackIlndtOjjlMYC/h2btEwY8By3o8KyRlOS9vKHKJeXIHmsGjdpsWYonB87olsJqiXfMK3QF32rFwI6VuQtXg1+CfdymMNI2EInjfvwt6dB+78M+YqqTH/kAEhupiTAc4dDomGaKs7iHFY7xGhUaqnFnQJcMOe+t7lmkKG3Mu5R55NTtUDLr3EXF/q6n/xYlLg=="
 }

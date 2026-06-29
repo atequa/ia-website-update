@@ -91,10 +91,13 @@ function bo_edit_anthropic(array $p, string $key, string $rules, string $corpus,
 function bo_edit_openai(array $p, string $key, string $rules, string $corpus, string $req): array {
     $sys = $rules . "\n\n" . bo_json_instr();
     $usr = "CONTENU ACTUEL DES FICHIERS :\n".$corpus."\n\nDemande :\n".$req;
+    // paramètres "extra" propres au fournisseur (ex. z.ai : {"thinking":{"type":"disabled"}} pour
+    // couper la phase de réflexion de GLM-4.6, sinon réponses très lentes → dépassement de délai).
+    $extra = (isset($p['extra']) && is_array($p['extra'])) ? $p['extra'] : [];
     $mk = fn($withFmt) => array_merge([
         'model'=>$p['model'],'max_tokens'=>BO_MAX_TOKENS,
         'messages'=>[['role'=>'system','content'=>$sys],['role'=>'user','content'=>$usr]],
-    ], $withFmt ? ['response_format'=>['type'=>'json_object']] : []);
+    ], $extra, $withFmt ? ['response_format'=>['type'=>'json_object']] : []);
     $rp = explode('@', BO_MAIL_FROM); $rhost = strtolower(trim((string)end($rp)));
     $hdr = ['Authorization: Bearer '.$key,'content-type: application/json',
             'HTTP-Referer: https://'.($rhost !== '' ? $rhost : 'localhost'),'X-Title: '.BO_SITE_NAME];
@@ -140,7 +143,7 @@ function bo_llm_edit(array $p, string $key, string $rules, string $corpus, strin
 /* ---- HTTP + messages d'erreur ---- */
 function bo_http(string $url, array $body, array $headers): array {
     $ch = curl_init($url);
-    curl_setopt_array($ch, [CURLOPT_POST=>true, CURLOPT_RETURNTRANSFER=>true, CURLOPT_TIMEOUT=>120,
+    curl_setopt_array($ch, [CURLOPT_POST=>true, CURLOPT_RETURNTRANSFER=>true, CURLOPT_TIMEOUT=>180, CURLOPT_CONNECTTIMEOUT=>15,
         CURLOPT_HTTPHEADER=>$headers, CURLOPT_POSTFIELDS=>json_encode($body, JSON_UNESCAPED_UNICODE)]);
     $resp = curl_exec($ch); $http = curl_getinfo($ch, CURLINFO_HTTP_CODE); $err = curl_error($ch); curl_close($ch);
     return [$http, $resp===false ? null : $resp, $err];

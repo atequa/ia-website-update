@@ -163,6 +163,7 @@ if ($action === 'propose') {
     $corpus=''; foreach ($files as $n=>$c) $corpus .= "\n===== FICHIER: $n =====\n".$c."\n";
 
     usage_record(0, 0, 1);                 // compte la requête
+    @set_time_limit(200);                  // certains modèles (ex. GLM-4.6) répondent en ~1-2 min
     $r = bo_llm_edit($p, $key, BO_RULES, $corpus, $req);
     if (!$r['ok']) fail(502, $r['error']);
     usage_record((int)($r['in']??0), (int)($r['out']??0), 0);   // ajoute les tokens consommés
