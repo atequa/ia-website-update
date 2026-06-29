@@ -85,6 +85,19 @@ function opt_providers(array $providers, string $selected): string {
   .thumb .filecard{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.15rem;width:96px;height:72px;border:1px solid var(--line);border-radius:.4rem;background:#fff;font-size:1.7rem;text-decoration:none;color:var(--navy)}
   .thumb .filecard span{font-size:.6rem;font-weight:700}
   .banner{background:#e8f5ee;border:1px solid #bfe3cf;border-radius:.5rem;padding:.7rem .9rem;margin:0 0 1rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+  .composer{border:1px solid var(--line);border-radius:.75rem;background:#fff;overflow:hidden}
+  .composer textarea{border:0;border-radius:0;min-height:96px;padding:.9rem;width:100%}
+  .composer textarea:focus{outline:none}
+  .composer-bar{display:flex;align-items:center;gap:.4rem;padding:.5rem .6rem;border-top:1px solid var(--line);flex-wrap:wrap}
+  .composer-bar .spacer{flex:1}
+  .iconbtn{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border:1px solid var(--line);border-radius:.5rem;background:#fff;cursor:pointer;font-size:1.05rem;line-height:1;padding:0}
+  .iconbtn:hover{background:var(--surface)}
+  .iconbtn.rec{background:#fdecea;border-color:#f5b3ab;animation:pulse 1.2s infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(179,38,30,.4)}50%{box-shadow:0 0 0 6px rgba(179,38,30,0)}}
+  .mode-sel{width:auto;padding:.45rem .5rem;border-radius:.5rem;font-size:.86rem}
+  .chips{display:flex;flex-wrap:wrap;gap:.45rem;margin:.7rem 0 0}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:.35rem .8rem;font:inherit;font-size:.85rem;cursor:pointer;color:var(--navy)}
+  .chip:hover{background:#eef4fa}
 </style>
 </head>
 <body>
@@ -141,9 +154,28 @@ $('#email').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-login').cl
     <div id="edit-status"></div>
     <div class="card">
       <h2>Demander une modification</h2>
-      <p class="muted small">Décrivez en français ce que vous voulez changer. Ex. : « Remplace le titre de l'accueil par … », « Ajoute une question à la FAQ : … ».</p>
-      <textarea id="request" placeholder="Votre demande…"></textarea>
-      <div class="row"><button class="btn btn-navy" id="btn-propose">Préparer la modification</button><span class="small muted" id="propose-status"></span></div>
+      <p class="muted small" style="margin-top:0">Décrivez ce que vous voulez changer — ou dictez-le avec le micro 🎤. Joignez une image/PDF avec le trombone 📎 (ou collez avec Ctrl/Cmd + V).</p>
+      <div class="composer">
+        <textarea id="request" placeholder="Votre demande…  (micro 🎤 pour dicter)"></textarea>
+        <div class="composer-bar">
+          <button class="iconbtn" id="btn-attach" type="button" title="Joindre une image ou un document">📎</button>
+          <input type="file" id="image" hidden accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv">
+          <button class="iconbtn" id="btn-mic" type="button" title="Dicter à la voix" hidden>🎤</button>
+          <span class="small" id="upload-status"></span>
+          <span class="spacer"></span>
+<?php if(!$managed): ?>          <select class="mode-sel" id="mode-sel" title="Qualité des réponses"></select>
+<?php endif; ?>          <button class="btn btn-navy" id="btn-propose">Préparer</button>
+        </div>
+      </div>
+      <div class="small muted" id="propose-status" style="margin-top:.5rem"></div>
+      <div class="chips" id="chips">
+        <button class="chip" type="button" data-tpl="Remplace le texte « … » par « … »">✏️ Modifier un texte</button>
+        <button class="chip" type="button" data-tpl="Utilise l'image assets/… à la place de la photo …">🖼️ Changer une photo</button>
+        <button class="chip" type="button" data-tpl="Mets à jour les horaires : …">🕒 Horaires</button>
+        <button class="chip" type="button" data-tpl="Ajoute une actualité sur la page d'accueil : …">📣 Ajouter une actu</button>
+        <button class="chip" type="button" data-tpl="Corrige les fautes d'orthographe de la page d'accueil.">✅ Corriger les fautes</button>
+      </div>
+      <div id="uploads" class="uploads"></div>
     </div>
 
     <div class="card" id="proposal" hidden>
@@ -166,12 +198,6 @@ $('#email').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-login').cl
       </div>
     </div>
 
-    <div class="card">
-      <h2>Fichiers (images, PDF, documents)</h2>
-      <p class="muted small" style="margin-top:0">Téléversez une image ou un document (PDF, Word, Excel…) <b>— ou collez une image</b> (Ctrl/Cmd + V) dans la zone de demande ci-dessus. Puis : « remplace la carte PDF par <code>assets/xxx.pdf</code> » ou « utilise l'image <code>assets/xxx.jpg</code> pour … ».</p>
-      <div class="row"><input type="file" id="image" accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv"><button class="btn btn-ghost" id="btn-upload">Téléverser</button><span class="small" id="upload-status"></span></div>
-      <div id="uploads" class="uploads"></div>
-    </div>
   </section>
 
   <!-- ===== HISTORIQUE ===== -->
@@ -227,6 +253,10 @@ async function refresh(){try{const s=await api('status');
   if($('#quota')){const pct=s.cap?Math.round(s.calls_today/s.cap*100):0;const q=$('#quota');q.textContent='📊 '+pct+'%';q.title=s.calls_today+'/'+s.cap+' requêtes aujourd\'hui · ~'+(s.tokens_today||0).toLocaleString('fr-FR')+' tokens'+(_p&&_p.free?' · fournisseur gratuit':'');}
   const pp=s.providers.find(x=>x.id===s.selected);
   if($('#prov-status'))$('#prov-status').textContent=(pp&&pp.has_key)?'clé en place ✔':'⚠️ aucune clé pour ce fournisseur';
+  const ms=$('#mode-sel');
+  if(ms){const keyed=s.providers.filter(p=>p.has_key);
+    if(keyed.length){ms.innerHTML=keyed.map(p=>'<option value="'+p.id+'"'+(p.id===s.selected?' selected':'')+'>'+(p.free?'⚡ Rapide':'✨ Soigné')+' — '+escapeHtml((p.label||'').replace(/ —.*$/,''))+'</option>').join('');ms.disabled=false;}
+    else{ms.innerHTML='<option>⚙️ Clé à configurer (Réglages)</option>';ms.disabled=true;}}
   if($('#usage-line')){const pct=s.cap?Math.round(s.calls_today/s.cap*100):0;
     $('#usage-line').innerHTML='📊 Aujourd\'hui via ce site : <b>'+s.calls_today+'/'+s.cap+'</b> requêtes (<b>'+pct+'%</b> du quota quotidien) · <b>~'+(s.tokens_today||0).toLocaleString('fr-FR')+'</b> tokens.'+(pp&&pp.free_note?'<br>Fournisseur <b>'+escapeHtml(pp.label)+'</b> : quota '+escapeHtml(pp.free_note)+'.':'')+'<br><span class="muted">↻ Compteur remis à zéro chaque jour à minuit (heure du serveur). Le quota gratuit restant exact se vérifie sur la console du fournisseur.</span>';}
 }catch(e){}}
@@ -268,11 +298,33 @@ $('#btn-apply').onclick=async()=>{if(!token)return;$('#btn-apply').disabled=true
   else $('#apply-status').innerHTML='<span class="err">'+(r.error||'Erreur')+'</span>';
   $('#btn-apply').disabled=false;};
 
-/* ---- Image ---- */
-$('#btn-upload').onclick=async()=>{const f=$('#image').files[0];if(!f)return;$('#upload-status').textContent='Envoi…';
+/* ---- Fichiers (trombone) + dictée + suggestions + mode ---- */
+$('#btn-attach').onclick=()=>$('#image').click();
+$('#image').onchange=async()=>{const f=$('#image').files[0];if(!f)return;await doUpload(f);$('#image').value='';};
+async function doUpload(f){$('#upload-status').innerHTML='<span class="spinner"></span> envoi…';
   const fd=new FormData();fd.append('image',f); const r=await api('upload',fd,true);
-  if(r.ok){$('#upload-status').innerHTML='<span class="ok">Fichier ajouté : <code>'+r.filename+'</code></span>';$('#image').value='';loadUploads();}
-  else $('#upload-status').innerHTML='<span class="err">'+(r.error||'Erreur')+'</span>';};
+  if(r.ok){$('#upload-status').innerHTML='<span class="ok">Ajouté : <code>'+r.filename+'</code></span>';loadUploads();}
+  else $('#upload-status').innerHTML='<span class="err">'+(r.error||'Erreur')+'</span>';}
+/* suggestions cliquables : remplit la zone et place le curseur sur le premier « … » */
+$$('#chips .chip').forEach(c=>c.onclick=()=>{const t=$('#request');const tpl=c.dataset.tpl;
+  t.value=(t.value.trim()?t.value.trim()+'\n':'')+tpl;t.focus();
+  const i=t.value.indexOf('…');if(i>=0)t.setSelectionRange(i,i+1);});
+/* Ctrl/Cmd + Entrée = préparer la modification */
+$('#request').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();$('#btn-propose').click();}});
+/* choix Rapide/Soigné = fournisseur (libellé simplifié), synchronisé avec Réglages */
+if($('#mode-sel'))$('#mode-sel').onchange=async()=>{if($('#mode-sel').disabled)return;await api('set_provider',{provider:$('#mode-sel').value});refresh();};
+/* dictée vocale — API du navigateur, 100% local ; le micro reste masqué si non supporté */
+(function(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;const mic=$('#btn-mic');if(!SR||!mic)return;
+  mic.hidden=false;let rec=null,on=false,base='';
+  mic.onclick=()=>{if(on){rec&&rec.stop();return;}
+    rec=new SR();rec.lang='fr-FR';rec.interimResults=true;rec.continuous=true;
+    base=$('#request').value;if(base&&!/\s$/.test(base))base+=' ';
+    rec.onstart=()=>{on=true;mic.classList.add('rec');mic.title='Arrêter la dictée';};
+    rec.onend=()=>{on=false;mic.classList.remove('rec');mic.title='Dicter à la voix';};
+    rec.onerror=()=>{};
+    rec.onresult=(e)=>{let txt='';for(let i=0;i<e.results.length;i++)txt+=e.results[i][0].transcript;$('#request').value=base+txt;};
+    try{rec.start();}catch(_){}};
+})();
 async function loadUploads(){const el=$('#uploads');if(!el)return;
   try{const r=await api('list_uploads');if(!r.ok)return;
     el.innerHTML=r.files.map(f=>{const ext=f.split('.').pop().toLowerCase();const isImg=['jpg','jpeg','png','webp','gif','svg'].includes(ext);const inner=isImg?'<img src="/'+f+'" alt="">':'<a class="filecard" href="/'+f+'" target="_blank" rel="noopener">📄<span>'+ext.toUpperCase()+'</span></a>';return '<div class="thumb">'+inner+'<button class="x" data-f="'+f+'" title="Supprimer">×</button><div class="fn">'+escapeHtml(f.replace('assets/',''))+'</div></div>';}).join('');
