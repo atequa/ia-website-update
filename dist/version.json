@@ -1,10 +1,10 @@
 {
-    "version": "2026.06.29-1",
+    "version": "2026.06.29-2",
     "files": [
         {
             "url": "payload/bo_llm.php",
             "dest": "private/bo_llm.php",
-            "sha256": "287e75c25b9301ad550df3f0ca2ba7aa723ce2b5d5329112c6ff175bf935a69b"
+            "sha256": "4fecacf0fe0b991caabdeae4e9ee6de4987ae14899531c0928e16c72807e777a"
         },
         {
             "url": "payload/bo_providers.json",
@@ -14,18 +14,18 @@
         {
             "url": "payload/admin/index.php",
             "dest": "docroot/admin/index.php",
-            "sha256": "f6b58ad543eb5d71a2d3a64a98bec41aaaac7f98e006c7291f2058c0525b8e24"
+            "sha256": "1f1059fa36a5e26efc2b65f9d9bf47f913a67fbb921442277ee2aa997853f8a9"
         },
         {
             "url": "payload/admin/api.php",
             "dest": "docroot/admin/api.php",
-            "sha256": "b8296114ad778f39038e8d57bd01934c413bc9d0cde19f90b69ad849a5196d33"
+            "sha256": "52a399f4faa94c3e3712035ef591246c413f54c317fb1daaf63a91171b0fc4f2"
         },
         {
             "url": "payload/admin/preview.php",
             "dest": "docroot/admin/preview.php",
-            "sha256": "286cc4f24abd3d36c8f8eea276fe8545f9cf0bd1163920c57c763a385add6f3d"
+            "sha256": "d813518dda51377f4f575674879f958dd813bcd16a93e3df08c70424ac5bf0cf"
         }
     ],
-    "sig": "X/JQBTmka0KnYKREtaURyRsE8GirY0ht+auBh3n4H17XRw1G/qiBcqvo54xKUvSHd7KGDmtgr2YFb1GvwSdemB+C67iX0gCpva6Yw8XuMLF7W07QOCAhEOW08s/+7unDvR6eGpdVnVmpE/fUOZ7dPF/noDl/SyMnMpTGQIe5Gch1J3fhIn747HkOYYamRvTDkUqn+GmN2TYxju/ARwDZ1uTT8XYb3qg/1msvr3QW7qkUAS6DT4nBrCqI1XRYLKIGImBq/pFcNc4wIuCsksdNtU8PXGHNPbrbK7eEa58sJUTNq+Ff9xQb3BNDGnzgU7H2QN2us4vRsP4VmEzv3nm/5Q=="
+    "sig": "C6B9Pnlec+p91dG4zK0YSHXLw18C8ZzaPj7JD6ymOY62uqOJQ5FzfexPE7qfW2hY4A3VIgVJa/p7C2nMNF7z7J8PDtd3F0qn++I58rj0unQ+rZmhdCnMvNMb+Y1Mf++CpS1DzV7zSP8xtYfHVhHl2pk6iO+3Rg7MXUdfXqCqtlLiLskK9BvTb0+0ZWIIOQUyrgWJ5zonhYYXWl0j7x3VYzg5c5BuJr9p6bZV3YyV89MiHfOuVgRj2DeSkHKkLk1Y0VMxkUegqf7r1mWku+Ty5dM7F0ycxi70Wh6qQlyW4YgbzrbnYeFvcopO3wTNYip/ClrxSmXM1dESZcpJ2fnqsw=="
 }

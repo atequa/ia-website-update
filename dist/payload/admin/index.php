@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+@ini_set('display_errors', '0');                 // jamais de détail d'erreur PHP affiché
 require __DIR__ . '/bo_path.php';                 // définit BO_PRIVATE_DIR (généré par site, hors payload)
 require BO_PRIVATE_DIR . '/bo_auth.php';
 require BO_PRIVATE_DIR . '/bo_llm.php';

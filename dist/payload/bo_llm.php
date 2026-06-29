@@ -95,8 +95,9 @@ function bo_edit_openai(array $p, string $key, string $rules, string $corpus, st
         'model'=>$p['model'],'max_tokens'=>BO_MAX_TOKENS,
         'messages'=>[['role'=>'system','content'=>$sys],['role'=>'user','content'=>$usr]],
     ], $withFmt ? ['response_format'=>['type'=>'json_object']] : []);
+    $rp = explode('@', BO_MAIL_FROM); $rhost = strtolower(trim((string)end($rp)));
     $hdr = ['Authorization: Bearer '.$key,'content-type: application/json',
-            'HTTP-Referer: https://educ-care.com','X-Title: '.BO_SITE_NAME];
+            'HTTP-Referer: https://'.($rhost !== '' ? $rhost : 'localhost'),'X-Title: '.BO_SITE_NAME];
     $url = rtrim($p['base_url'],'/').'/chat/completions';
     [$http,$resp,$err] = bo_http($url, $mk(true), $hdr);
     if ($http===400) { [$http,$resp,$err] = bo_http($url, $mk(false), $hdr); } // certains modèles refusent response_format

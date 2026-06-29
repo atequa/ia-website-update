@@ -25,8 +25,10 @@ function bo_fetch(string $url): ?string {
 }
 function bo_dest_path(string $dest): ?string {
     if (strpos($dest, '..') !== false) return null;
-    if (strpos($dest, 'docroot/') === 0) return BO_DOCROOT . '/' . substr($dest, 8);
-    if (strpos($dest, 'private/') === 0) return BO_PRIVATE . '/' . substr($dest, 8);
+    // Périmètre strict : SEULS les fichiers du back-office sont écrivables par une mise à jour.
+    // (un manifeste, même signé, ne peut PAS écraser le contenu du site, .htaccess, etc.)
+    if (preg_match('~^private/([a-zA-Z0-9_]+\.(?:php|json))$~', $dest, $m)) return BO_PRIVATE . '/' . $m[1];
+    if (preg_match('~^docroot/admin/([a-zA-Z0-9_]+\.php)$~', $dest, $m)) return BO_DOCROOT . '/admin/' . $m[1];
     return null;
 }
 function bo_ver_parts(string $v): array { preg_match_all('/\d+/', $v, $m); return array_map('intval', $m[0]); }

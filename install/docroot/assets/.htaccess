@@ -1,0 +1,9 @@
+# Dossier des fichiers téléversés : défense en profondeur.
+# Aucun script ne doit jamais s'exécuter ici (les uploads sont déjà filtrés côté PHP).
+# On NE bloque PAS images/SVG/PDF/docs : ce sont des assets légitimes du site (logo.svg, etc.).
+<FilesMatch "(?i)\.(php|phtml|phar|phps|pht|php[0-9]|cgi|pl|py|sh|asp|aspx|jsp)$">
+  Require all denied
+</FilesMatch>
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+</IfModule>
