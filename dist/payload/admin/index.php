@@ -316,8 +316,12 @@ $('#btn-propose').onclick=async()=>{const req=$('#request').value.trim();if(!req
 let frTotal=0;
 function frPages(){return [...$$('.fr-pg')].filter(b=>b.checked).map(b=>b.value);}
 function frHideApply(){if($('#fr-apply'))$('#fr-apply').style.display='none';}
-if($('#fr-pages')){$('#fr-pages').innerHTML=HTML_PAGES.map(p=>'<label><input type="checkbox" class="fr-pg" value="'+escapeHtml(p)+'" checked>'+escapeHtml(p)+'</label>').join('');
-  $('#fr-pages').addEventListener('change',frHideApply);}
+function frBoxes(pgs){return pgs.map(p=>'<label><input type="checkbox" class="fr-pg" value="'+escapeHtml(p)+'" checked>'+escapeHtml(p)+'</label>').join('');}
+async function frLoadPages(){const el=$('#fr-pages');if(!el)return;
+  let pgs=HTML_PAGES;
+  try{const r=await api('list_pages');if(r&&r.ok&&r.pages&&r.pages.length)pgs=r.pages;}catch(e){}
+  el.innerHTML=frBoxes(pgs);}
+if($('#fr-pages')){frLoadPages();$('#fr-pages').addEventListener('change',frHideApply);}
 ['fr-find','fr-repl'].forEach(id=>{const el=$('#'+id);if(el)el.addEventListener('input',frHideApply);});
 if($('#fr-all'))$('#fr-all').onclick=()=>{const b=$$('.fr-pg');const on=[...b].some(x=>!x.checked);b.forEach(x=>x.checked=on);frHideApply();};
 if($('#fr-check'))$('#fr-check').onclick=async()=>{const find=$('#fr-find').value,pages=frPages();

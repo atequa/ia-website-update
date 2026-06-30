@@ -27,9 +27,18 @@ function bo_same_origin(): bool {
 @mkdir(BO_PROPOSALS, 0700, true);
 
 function bo_newid(): string { return date('Ymd-His').'-'.bin2hex(random_bytes(2)); }
+// Scan LIVE du docroot : toutes les pages .html réellement présentes (s'adapte aux pages ajoutées).
+function bo_html_pages(): array {
+    $out = [];
+    foreach (glob(BO_DOCROOT.'/*.html') as $f) if (is_file($f)) $out[] = basename($f);
+    sort($out);
+    return $out;
+}
 function bo_snapshot_all(string $id): void {
     $d = BO_HISTORY.'/'.$id; @mkdir($d, 0700, true);
-    foreach (BO_EDITABLE as $n) { $p = BO_DOCROOT.'/'.$n; if (is_file($p)) copy($p, $d.'/'.$n); }
+    $names = BO_EDITABLE;
+    foreach (bo_html_pages() as $n) if (!in_array($n, $names, true)) $names[] = $n; // inclut les pages ajoutées
+    foreach ($names as $n) { $p = BO_DOCROOT.'/'.$n; if (is_file($p)) copy($p, $d.'/'.basename($n)); }
 }
 function bo_history_add(string $id, string $summary, array $changed): void {
     $h = bo_json_read(BO_HISTORY_FILE);
@@ -139,9 +148,13 @@ if ($action === 'update') {
     out(bo_run_update());
 }
 
+if ($action === 'list_pages') { out(['ok'=>true, 'pages'=>bo_html_pages()]); }
+
 /* ---- Édition ---- */
 function editable_path(string $name): ?string {
-    if (!in_array($name, BO_EDITABLE, true)) return null;
+    // autorisé si listé dans BO_EDITABLE, OU si c'est une page .html réellement présente dans le docroot
+    $ok = in_array($name, BO_EDITABLE, true) || (substr($name,-5)==='.html' && is_file(BO_DOCROOT.'/'.$name));
+    if (!$ok) return null;
     $p = BO_DOCROOT.'/'.$name; $real=realpath(BO_DOCROOT); $rp=realpath(dirname($p));
     if ($real===false || $rp===false || strpos($rp,$real)!==0) return null;
     return $p;
@@ -219,18 +232,16 @@ if ($action === 'replace') {
     if ($find === '') fail(422, "Indiquez le texte à rechercher.");
     if (mb_strlen($find) > 2000 || mb_strlen($repl) > 2000) fail(422, "Texte trop long (max 2000 caractères).");
 
-    // On ne touche QU'aux pages HTML cochées — jamais CSS/JS/robots/sitemap ni config.
+    // On ne touche QU'aux pages HTML cochées (scan live du docroot) — jamais CSS/JS/robots/sitemap ni config.
     $pages = json_decode((string)($_POST['pages'] ?? '[]'), true);
     if (!is_array($pages)) $pages = [];
-    $sel = [];
+    $valid = bo_html_pages();
+    $files = [];
     foreach ($pages as $pg) {
         $pg = basename((string)$pg);
-        if (substr($pg, -5) === '.html' && in_array($pg, BO_EDITABLE, true)) $sel[$pg] = true;
+        if (in_array($pg, $valid, true)) { $p = BO_DOCROOT.'/'.$pg; if (is_file($p)) $files[$pg] = file_get_contents($p); }
     }
-    if (!$sel) fail(422, "Sélectionnez au moins une page.");
-
-    $files = read_site_files();
-    foreach ($files as $name => $_c) if (!isset($sel[$name])) unset($files[$name]); // pages cochées seulement
+    if (!$files) fail(422, "Sélectionnez au moins une page.");
     $hits = []; $total = 0;
     foreach ($files as $name => $content) {
         $n = substr_count($content, $find);
