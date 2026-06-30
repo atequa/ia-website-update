@@ -100,6 +100,11 @@ function opt_providers(array $providers, string $selected): string {
   .chip:hover{background:#eef4fa}
   .fr-grid{display:grid;gap:.8rem;grid-template-columns:1fr;margin-top:.4rem}
   @media(min-width:640px){.fr-grid{grid-template-columns:1fr 1fr}}
+  .fr-pages-head{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin-top:.7rem;flex-wrap:wrap}
+  .fr-pages{display:flex;flex-wrap:wrap;gap:.4rem .6rem;margin:.3rem 0 .2rem}
+  .fr-pages label{display:inline-flex;align-items:center;gap:.35rem;font-size:.88rem;cursor:pointer;border:1px solid var(--line);border-radius:.5rem;padding:.3rem .6rem;background:#fff}
+  .fr-pages input{width:auto}
+  .btn-sm{padding:.4rem .7rem;font-size:.85rem}
 </style>
 </head>
 <body>
@@ -181,13 +186,18 @@ $('#email').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-login').cl
     </div>
 
     <div class="card">
-      <h2>Remplacer un mot partout (sans IA)</h2>
-      <p class="muted small" style="margin-top:0">Pour une correction <b>identique sur toutes les pages</b> — ex. remplacer un tiret long « — » par « - », corriger une faute récurrente, changer un numéro. Instantané, gratuit, et réversible via l'historique.</p>
+      <h2>Remplacer un mot dans les pages (sans IA)</h2>
+      <p class="muted small" style="margin-top:0">Correction <b>identique</b> dans les pages cochées — ex. remplacer « — » par « - », corriger une faute récurrente, changer un numéro. Instantané, gratuit, réversible via l'historique. <b>Ne touche qu'au texte des pages</b> (jamais le style ni la configuration).</p>
       <div class="fr-grid">
         <label class="lbl">Chercher (texte exact)<input type="text" id="fr-find" placeholder="ex. —"></label>
         <label class="lbl">Remplacer par<input type="text" id="fr-repl" placeholder="ex. -   (vide = supprimer)"></label>
       </div>
-      <div class="row"><button class="btn btn-ghost" id="fr-check">🔍 Vérifier</button><button class="btn btn-green" id="fr-apply" style="display:none">Remplacer partout</button><span class="small muted" id="fr-status"></span></div>
+      <div class="fr-pages-head">
+        <span class="lbl" style="margin:0">Pages concernées</span>
+        <button class="btn btn-ghost btn-sm" id="fr-all" type="button">Tout cocher / décocher</button>
+      </div>
+      <div class="fr-pages" id="fr-pages"></div>
+      <div class="row"><button class="btn btn-ghost" id="fr-check">🔍 Vérifier</button><button class="btn btn-green" id="fr-apply" style="display:none">Remplacer dans les pages cochées</button><span class="small muted" id="fr-status"></span></div>
     </div>
 
     <div class="card" id="proposal" hidden>
@@ -304,21 +314,27 @@ $('#btn-propose').onclick=async()=>{const req=$('#request').value.trim();if(!req
 
 /* ---- Chercher / Remplacer (déterministe, sans IA) ---- */
 let frTotal=0;
-['fr-find','fr-repl'].forEach(id=>{const el=$('#'+id);if(el)el.addEventListener('input',()=>{if($('#fr-apply'))$('#fr-apply').style.display='none';});});
-if($('#fr-check'))$('#fr-check').onclick=async()=>{const find=$('#fr-find').value;
+function frPages(){return [...$$('.fr-pg')].filter(b=>b.checked).map(b=>b.value);}
+function frHideApply(){if($('#fr-apply'))$('#fr-apply').style.display='none';}
+if($('#fr-pages')){$('#fr-pages').innerHTML=HTML_PAGES.map(p=>'<label><input type="checkbox" class="fr-pg" value="'+escapeHtml(p)+'" checked>'+escapeHtml(p)+'</label>').join('');
+  $('#fr-pages').addEventListener('change',frHideApply);}
+['fr-find','fr-repl'].forEach(id=>{const el=$('#'+id);if(el)el.addEventListener('input',frHideApply);});
+if($('#fr-all'))$('#fr-all').onclick=()=>{const b=$$('.fr-pg');const on=[...b].some(x=>!x.checked);b.forEach(x=>x.checked=on);frHideApply();};
+if($('#fr-check'))$('#fr-check').onclick=async()=>{const find=$('#fr-find').value,pages=frPages();
   if(!find){$('#fr-status').innerHTML='<span class="err">Indiquez le texte à chercher.</span>';return;}
-  $('#fr-status').innerHTML='<span class="spinner"></span>';$('#fr-apply').style.display='none';
-  try{const r=await api('replace',{find,replace:$('#fr-repl').value,mode:'preview'});
+  if(!pages.length){$('#fr-status').innerHTML='<span class="err">Cochez au moins une page.</span>';return;}
+  $('#fr-status').innerHTML='<span class="spinner"></span>';frHideApply();
+  try{const r=await api('replace',{find,replace:$('#fr-repl').value,mode:'preview',pages:JSON.stringify(pages)});
     if(!r.ok){$('#fr-status').innerHTML='<span class="err">'+(r.error||'Erreur')+'</span>';return;}
     frTotal=r.total;
-    if(!r.total){$('#fr-status').innerHTML='<span class="muted">Introuvable sur le site.</span>';}
+    if(!r.total){$('#fr-status').innerHTML='<span class="muted">Introuvable dans les pages cochées.</span>';}
     else{$('#fr-status').innerHTML='<b>'+r.total+'</b> occurrence'+(r.total>1?'s':'')+' dans '+r.files.length+' page'+(r.files.length>1?'s':'')+' : '+r.files.map(f=>escapeHtml(f.path)+' ('+f.count+')').join(', ');$('#fr-apply').style.display='';}
   }catch(e){if(e.message!=='auth')$('#fr-status').innerHTML='<span class="err">Erreur réseau</span>';}};
-if($('#fr-apply'))$('#fr-apply').onclick=async()=>{const find=$('#fr-find').value;if(!find)return;
-  if(!confirm('Remplacer '+frTotal+' occurrence(s) sur tout le site ?\n(réversible via l\'historique)'))return;
+if($('#fr-apply'))$('#fr-apply').onclick=async()=>{const find=$('#fr-find').value,pages=frPages();if(!find||!pages.length)return;
+  if(!confirm('Remplacer '+frTotal+' occurrence(s) dans '+pages.length+' page(s) cochée(s) ?\n(réversible via l\'historique)'))return;
   $('#fr-apply').disabled=true;$('#fr-status').innerHTML='<span class="spinner"></span> remplacement…';
-  try{const r=await api('replace',{find,replace:$('#fr-repl').value,mode:'apply'});
-    if(r.ok){$('#edit-status').innerHTML='<div class="banner"><span class="ok">✔ '+r.total+' remplacement(s) publié(s) sur '+r.written.length+' page(s).</span> <a class="btn btn-ghost" href="/" target="_blank" rel="noopener">👁 Vérifier sur le site</a></div>';$('#fr-status').textContent='';$('#fr-apply').style.display='none';$('#fr-find').value='';$('#fr-repl').value='';window.scrollTo({top:0,behavior:'smooth'});refresh();}
+  try{const r=await api('replace',{find,replace:$('#fr-repl').value,mode:'apply',pages:JSON.stringify(pages)});
+    if(r.ok){$('#edit-status').innerHTML='<div class="banner"><span class="ok">✔ '+r.total+' remplacement(s) publié(s) sur '+r.written.length+' page(s).</span> <a class="btn btn-ghost" href="/" target="_blank" rel="noopener">👁 Vérifier sur le site</a></div>';$('#fr-status').textContent='';frHideApply();$('#fr-find').value='';$('#fr-repl').value='';window.scrollTo({top:0,behavior:'smooth'});refresh();}
     else $('#fr-status').innerHTML='<span class="err">'+(r.error||'Erreur')+'</span>';
   }catch(e){if(e.message!=='auth')$('#fr-status').innerHTML='<span class="err">Erreur réseau</span>';}
   $('#fr-apply').disabled=false;};

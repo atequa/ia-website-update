@@ -219,7 +219,18 @@ if ($action === 'replace') {
     if ($find === '') fail(422, "Indiquez le texte à rechercher.");
     if (mb_strlen($find) > 2000 || mb_strlen($repl) > 2000) fail(422, "Texte trop long (max 2000 caractères).");
 
+    // On ne touche QU'aux pages HTML cochées — jamais CSS/JS/robots/sitemap ni config.
+    $pages = json_decode((string)($_POST['pages'] ?? '[]'), true);
+    if (!is_array($pages)) $pages = [];
+    $sel = [];
+    foreach ($pages as $pg) {
+        $pg = basename((string)$pg);
+        if (substr($pg, -5) === '.html' && in_array($pg, BO_EDITABLE, true)) $sel[$pg] = true;
+    }
+    if (!$sel) fail(422, "Sélectionnez au moins une page.");
+
     $files = read_site_files();
+    foreach ($files as $name => $_c) if (!isset($sel[$name])) unset($files[$name]); // pages cochées seulement
     $hits = []; $total = 0;
     foreach ($files as $name => $content) {
         $n = substr_count($content, $find);
