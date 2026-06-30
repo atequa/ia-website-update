@@ -98,6 +98,8 @@ function opt_providers(array $providers, string $selected): string {
   .chips{display:flex;flex-wrap:wrap;gap:.45rem;margin:.7rem 0 0}
   .chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:.35rem .8rem;font:inherit;font-size:.85rem;cursor:pointer;color:var(--navy)}
   .chip:hover{background:#eef4fa}
+  .fr-grid{display:grid;gap:.8rem;grid-template-columns:1fr;margin-top:.4rem}
+  @media(min-width:640px){.fr-grid{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
@@ -176,6 +178,16 @@ $('#email').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-login').cl
         <button class="chip" type="button" data-tpl="Corrige les fautes d'orthographe de la page d'accueil.">✅ Corriger les fautes</button>
       </div>
       <div id="uploads" class="uploads"></div>
+    </div>
+
+    <div class="card">
+      <h2>Remplacer un mot partout (sans IA)</h2>
+      <p class="muted small" style="margin-top:0">Pour une correction <b>identique sur toutes les pages</b> — ex. remplacer un tiret long « — » par « - », corriger une faute récurrente, changer un numéro. Instantané, gratuit, et réversible via l'historique.</p>
+      <div class="fr-grid">
+        <label class="lbl">Chercher (texte exact)<input type="text" id="fr-find" placeholder="ex. —"></label>
+        <label class="lbl">Remplacer par<input type="text" id="fr-repl" placeholder="ex. -   (vide = supprimer)"></label>
+      </div>
+      <div class="row"><button class="btn btn-ghost" id="fr-check">🔍 Vérifier</button><button class="btn btn-green" id="fr-apply" style="display:none">Remplacer partout</button><span class="small muted" id="fr-status"></span></div>
     </div>
 
     <div class="card" id="proposal" hidden>
@@ -289,6 +301,27 @@ $('#btn-propose').onclick=async()=>{const req=$('#request').value.trim();if(!req
       $('#propose-status').innerHTML='<span class="small muted">'+r.provider+' · '+(r.tokens.in+r.tokens.out)+' tokens</span>';refresh();}
   }catch(e){clearInterval(iv);if(e.message!=='auth')$('#propose-status').innerHTML='<span class="err">Erreur réseau</span>';}
   $('#btn-propose').disabled=false;};
+
+/* ---- Chercher / Remplacer (déterministe, sans IA) ---- */
+let frTotal=0;
+['fr-find','fr-repl'].forEach(id=>{const el=$('#'+id);if(el)el.addEventListener('input',()=>{if($('#fr-apply'))$('#fr-apply').style.display='none';});});
+if($('#fr-check'))$('#fr-check').onclick=async()=>{const find=$('#fr-find').value;
+  if(!find){$('#fr-status').innerHTML='<span class="err">Indiquez le texte à chercher.</span>';return;}
+  $('#fr-status').innerHTML='<span class="spinner"></span>';$('#fr-apply').style.display='none';
+  try{const r=await api('replace',{find,replace:$('#fr-repl').value,mode:'preview'});
+    if(!r.ok){$('#fr-status').innerHTML='<span class="err">'+(r.error||'Erreur')+'</span>';return;}
+    frTotal=r.total;
+    if(!r.total){$('#fr-status').innerHTML='<span class="muted">Introuvable sur le site.</span>';}
+    else{$('#fr-status').innerHTML='<b>'+r.total+'</b> occurrence'+(r.total>1?'s':'')+' dans '+r.files.length+' page'+(r.files.length>1?'s':'')+' : '+r.files.map(f=>escapeHtml(f.path)+' ('+f.count+')').join(', ');$('#fr-apply').style.display='';}
+  }catch(e){if(e.message!=='auth')$('#fr-status').innerHTML='<span class="err">Erreur réseau</span>';}};
+if($('#fr-apply'))$('#fr-apply').onclick=async()=>{const find=$('#fr-find').value;if(!find)return;
+  if(!confirm('Remplacer '+frTotal+' occurrence(s) sur tout le site ?\n(réversible via l\'historique)'))return;
+  $('#fr-apply').disabled=true;$('#fr-status').innerHTML='<span class="spinner"></span> remplacement…';
+  try{const r=await api('replace',{find,replace:$('#fr-repl').value,mode:'apply'});
+    if(r.ok){$('#edit-status').innerHTML='<div class="banner"><span class="ok">✔ '+r.total+' remplacement(s) publié(s) sur '+r.written.length+' page(s).</span> <a class="btn btn-ghost" href="/" target="_blank" rel="noopener">👁 Vérifier sur le site</a></div>';$('#fr-status').textContent='';$('#fr-apply').style.display='none';$('#fr-find').value='';$('#fr-repl').value='';window.scrollTo({top:0,behavior:'smooth'});refresh();}
+    else $('#fr-status').innerHTML='<span class="err">'+(r.error||'Erreur')+'</span>';
+  }catch(e){if(e.message!=='auth')$('#fr-status').innerHTML='<span class="err">Erreur réseau</span>';}
+  $('#fr-apply').disabled=false;};
 function setPreview(){ if(!token)return; const pg=$('#prev-page').value||'index.html';
   $('#prev-frame').src='preview.php?token='+token+'&path='+encodeURIComponent(pg)+'&t='+Date.now(); }
 $('#prev-page').onchange=setPreview;

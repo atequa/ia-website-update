@@ -77,14 +77,14 @@ $user = bo_current_user();
 if (!$user) fail(401, 'Session expirée. Reconnectez-vous.');
 
 // CSRF : toutes les actions modifiantes doivent venir de la même origine.
-$BO_MUTATING = ['logout','set_provider','set_key','update','propose','apply','restore','undo','upload','delete_image'];
+$BO_MUTATING = ['logout','set_provider','set_key','update','propose','apply','replace','restore','undo','upload','delete_image'];
 if (in_array($action, $BO_MUTATING, true) && !bo_same_origin())
     fail(403, "Requête bloquée (origine invalide). Rechargez la page et réessayez.");
 
 if ($action === 'logout') { bo_logout(); out(['ok'=>true]); }
 
 $ctrl = bo_control_state();
-if (in_array($action,['propose','apply','undo','restore','upload','delete_image','update','set_key','set_provider'],true) && !$ctrl['enabled'])
+if (in_array($action,['propose','apply','replace','undo','restore','upload','delete_image','update','set_key','set_provider'],true) && !$ctrl['enabled'])
     fail(403, $ctrl['message'] !== '' ? $ctrl['message'] : "Accès suspendu. Contactez votre prestataire.");
 if (in_array($action,['set_key','set_provider'],true) && $ctrl['mode']==='managed')
     fail(403, "Le fournisseur et la clé sont gérés par votre prestataire.");
@@ -209,6 +209,48 @@ if ($action === 'apply') {
     bo_history_add($id, $summary, $written);
     @unlink($pf);
     out(['ok'=>true,'written'=>$written]);
+}
+
+/* ---- Chercher / Remplacer (déterministe, SANS IA) ---- */
+if ($action === 'replace') {
+    $find = (string)($_POST['find'] ?? '');
+    $repl = (string)($_POST['replace'] ?? '');
+    $mode = (($_POST['mode'] ?? 'preview') === 'apply') ? 'apply' : 'preview';
+    if ($find === '') fail(422, "Indiquez le texte à rechercher.");
+    if (mb_strlen($find) > 2000 || mb_strlen($repl) > 2000) fail(422, "Texte trop long (max 2000 caractères).");
+
+    $files = read_site_files();
+    $hits = []; $total = 0;
+    foreach ($files as $name => $content) {
+        $n = substr_count($content, $find);
+        if ($n > 0) { $hits[] = ['path'=>$name, 'count'=>$n]; $total += $n; }
+    }
+    if ($mode === 'preview') out(['ok'=>true, 'total'=>$total, 'files'=>$hits]);
+
+    if ($total === 0) fail(422, "Texte introuvable : rien à remplacer.");
+    if ($repl === $find) fail(422, "Le texte de remplacement est identique.");
+    $id = bo_newid(); bo_snapshot_all($id);                 // snapshot complet AVANT (réversible)
+    $written = [];
+    foreach ($hits as $h) {
+        $p = editable_path($h['path']); if (!$p) continue;
+        $content = $files[$h['path']];
+        $replaced = str_replace($find, $repl, $content);
+        if ($replaced !== $content) { file_put_contents($p, $replaced, LOCK_EX); $written[] = $h['path']; }
+    }
+    // Cache-busting si un CSS/JS a changé (même logique que 'apply').
+    if (preg_grep('/\.(css|js)$/', $written)) {
+        $v = date('YmdHis');
+        foreach (BO_EDITABLE as $n) {
+            if (substr($n,-5) !== '.html') continue;
+            $hp = BO_DOCROOT.'/'.$n; if (!is_file($hp)) continue;
+            $html = file_get_contents($hp);
+            $nv = preg_replace('/(\.(?:css|js))\?v=[0-9A-Za-z._-]*/', '$1?v='.$v, $html);
+            if ($nv !== null && $nv !== $html) file_put_contents($hp, $nv, LOCK_EX);
+        }
+    }
+    $summary = "Chercher/remplacer : « ".mb_substr($find,0,40)." » → « ".mb_substr($repl,0,40)." » (".$total." occurrence".($total>1?'s':'').")";
+    bo_history_add($id, $summary, $written);
+    out(['ok'=>true, 'total'=>$total, 'written'=>$written]);
 }
 
 if ($action === 'history') {
