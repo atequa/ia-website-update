@@ -228,6 +228,26 @@ if (!empty($C['uptimerobot']['api_key'])) {
     }
 }
 
+/* ============ 5ter. EcoIndex (AFFICHÉ sur la page publique — argument sobriété) ============ */
+$ecoCh = curl_init($C['site_url'] . '/');
+curl_setopt_array($ecoCh, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 8, CURLOPT_FOLLOWLOCATION => true, CURLOPT_ENCODING => '', CURLOPT_USERAGENT => 'atequa-audit']);
+$hpB = (string)curl_exec($ecoCh); curl_close($ecoCh);
+$domNodes = $hpB !== '' ? preg_match_all('/<[a-zA-Z][^>]*>/', $hpB) : 0;
+$ecoQ = static function (array $q, float $v) { $n = count($q); for ($i = 1; $i < $n; $i++) if ($v < $q[$i]) return ($i - 1) + ($v - $q[$i - 1]) / max(0.0001, $q[$i] - $q[$i - 1]); return (float)($n - 1); };
+$qDom = [0,47,75,159,233,298,358,417,476,537,603,674,753,843,949,1076,1237,1459,1801,2479,594601];
+$qReq = [0,2,15,25,34,42,49,56,63,70,78,86,95,105,117,130,147,170,205,281,3920];
+$qSize = [0,1.37,2.79,4.02,5.22,6.69,8.6,11.2,15.1,20.8,32.4,52.5,80.5,116,159,207,265,343,455,657,4000];
+$ecoScore = null; $ecoGrade = null; $ecoCo2 = null;
+if ($domNodes > 0 && $reqCount > 0) {
+    $s = 100 - 5 * (3 * $ecoQ($qDom, $domNodes) + 2 * $ecoQ($qReq, $reqCount) + $ecoQ($qSize, $weightKo)) / 6;
+    $ecoScore = (int)round(max(0, min(100, $s)));
+    $ecoGrade = $ecoScore >= 80 ? 'A' : ($ecoScore >= 70 ? 'B' : ($ecoScore >= 55 ? 'C' : ($ecoScore >= 40 ? 'D' : ($ecoScore >= 25 ? 'E' : ($ecoScore >= 10 ? 'F' : 'G')))));
+    $ecoCo2 = round(2 + 2 * (100 - $ecoScore) / 100, 2);
+}
+$ecoBlock = $ecoGrade
+    ? '<p class="perf-num">' . $ecoGrade . '<small> EcoIndex — ' . $ecoScore . '/100</small></p><p>Environ ' . str_replace('.', ',', (string)$ecoCo2) . ' g de CO₂ par visite. Un site sobre, conçu pour peser le moins possible.</p>'
+    : '<p class="perf-num">—</p><p>Mesure de sobriété en cours.</p>';
+
 /* ============ 6. Rendu ============ */
 $tpl = (string)file_get_contents(__DIR__ . '/perf_template.html');
 $repl = [
@@ -241,6 +261,7 @@ $repl = [
     '{{NB_REQ}}'        => (string)$reqCount,
     '{{SSL_DATE}}'      => $sslDate ?: 'renouvellement automatique',
     '{{PSI_BLOCK}}'        => $psiBlock,
+    '{{ECO_BLOCK}}'        => $ecoBlock,
     '{{PSI_SCORE}}'        => $psiScore !== null ? (string)$psiScore : '—',
     '{{PSI_LCP}}'          => $psiLcp !== '' ? $psiLcp : 'mesure en cours',
     '{{PSI_DATE}}'         => $psiDate ?: 'première mesure en cours',
@@ -315,24 +336,10 @@ $secOk = $headers['hsts'] && $headers['nosniff'] && $headers['referrer'] && $hea
 $robotsAI = ($robC === 200) && (stripos($robB, 'GPTBot') !== false || !preg_match('/^\s*Disallow:\s*\/\s*$/mi', $robB));
 [$smC] = $httpGet($C['site_url'] . '/sitemap.xml', 6, true);
 [$llC] = $httpGet($C['site_url'] . '/llms.txt', 6, true);
-[$hpC, $hpB] = $httpGet($C['site_url'] . '/', 8);
-$jsonld = stripos($hpB, 'application/ld+json') !== false;
+$jsonld = stripos($hpB, 'application/ld+json') !== false;   /* $hpB déjà récupéré en 5ter */
 $geo = ['robots_ai' => $robotsAI, 'sitemap' => ($smC === 200), 'llms' => ($llC === 200), 'jsonld' => $jsonld];
 $geoOk = $geo['robots_ai'] && $geo['sitemap'] && $geo['llms'] && $geo['jsonld'];
-
-/* --- EcoIndex (grade A–G + gCO2) [public possible] --- */
-$domNodes = $hpB !== '' ? preg_match_all('/<[a-zA-Z][^>]*>/', $hpB) : 0;
-$ecoQ = static function (array $q, float $v) { $n = count($q); for ($i = 1; $i < $n; $i++) if ($v < $q[$i]) return ($i - 1) + ($v - $q[$i - 1]) / max(0.0001, $q[$i] - $q[$i - 1]); return (float)($n - 1); };
-$qDom = [0,47,75,159,233,298,358,417,476,537,603,674,753,843,949,1076,1237,1459,1801,2479,594601];
-$qReq = [0,2,15,25,34,42,49,56,63,70,78,86,95,105,117,130,147,170,205,281,3920];
-$qSize = [0,1.37,2.79,4.02,5.22,6.69,8.6,11.2,15.1,20.8,32.4,52.5,80.5,116,159,207,265,343,455,657,4000];
-$ecoScore = null; $ecoGrade = null; $ecoCo2 = null;
-if ($domNodes > 0 && $reqCount > 0) {
-    $s = 100 - 5 * (3 * $ecoQ($qDom, $domNodes) + 2 * $ecoQ($qReq, $reqCount) + $ecoQ($qSize, $weightKo)) / 6;
-    $ecoScore = (int)round(max(0, min(100, $s)));
-    $ecoGrade = $ecoScore >= 80 ? 'A' : ($ecoScore >= 70 ? 'B' : ($ecoScore >= 55 ? 'C' : ($ecoScore >= 40 ? 'D' : ($ecoScore >= 25 ? 'E' : ($ecoScore >= 10 ? 'F' : 'G')))));
-    $ecoCo2 = round(2 + 2 * (100 - $ecoScore) / 100, 2);
-}
+/* EcoIndex ($ecoScore/$ecoGrade/$ecoCo2/$domNodes) calculé en 5ter (avant le rendu de la page). */
 
 $status = [
     'site'       => $C['domain'],
