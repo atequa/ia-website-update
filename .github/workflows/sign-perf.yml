@@ -1,0 +1,41 @@
+name: Signer le moteur perf
+
+# Auto-publication : dès qu'on modifie le moteur (dist-perf/payload/**), la CI resigne
+# le manifeste et le recommite. Les sites tirent la nouvelle version signée à leur cron.
+# La clé privée dédiée vit UNIQUEMENT dans le secret PERF_SIGN_PRIVKEY_B64 (périmètre : perf_gen.php).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'dist-perf/payload/**'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sign-perf
+  cancel-in-progress: false
+
+jobs:
+  sign:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: openssl
+      - name: Version horodatée monotone
+        id: v
+        run: echo "ver=$(date +%Y.%m.%d)-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+      - name: Construire et signer le manifeste
+        env:
+          PERF_SIGN_PRIVKEY_B64: ${{ secrets.PERF_SIGN_PRIVKEY_B64 }}
+        run: php build_perf_version.php "${{ steps.v.outputs.ver }}"
+      - name: Recommiter le manifeste signé
+        run: |
+          git config user.name  "atequa-ci"
+          git config user.email "ci@atequa-web.com"
+          git add dist-perf/version.json
+          git commit -m "CI: signature moteur perf ${{ steps.v.outputs.ver }}" || { echo "aucun changement"; exit 0; }
+          git push
