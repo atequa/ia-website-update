@@ -1,12 +1,12 @@
 {
-    "version": "2026.07.10-1",
+    "version": "2026.07.10.115307",
     "enabled": true,
     "files": [
         {
             "url": "payload/perf_gen.php",
             "dest": "payload/perf_gen.php",
-            "sha256": "b7ea3ac5204570db0e163cff6ab179ad2e9b66b0a51c1c912f8dd06dac06db65"
+            "sha256": "879ba012f97c187d5038116176164dfb8d65b8f3e04e4778a67a9351b4255078"
         }
     ],
-    "sig": "G0uRVx/yTlTW3imkPjFwROIIMk4fiApRCTiRllpEm+zIGMkK8NfvEN3r4vuUoMXCVk2wk63IoVxsDMYVbWBLcBa2HqhCfD7JNQiV9VmJKC7dDiqJ7hvrLw4yJt5+Aagd+WL7H/gvxzGpFz4DyjyDZVTs8iN1G6wNebRNIXrt9P327kTGSxM3jWmUU0A8Yz1lzOyHmYTf2GgUwP7Ok5EQxcvJ+vjFTE6zuLvAB+c6wFuo3x6z9XZbjbr9au0qSwXRfZjzHNWER26mTwHo6aVqFtydVyCxOW68cADVF/hc6/lUughziGqQcS7kVrYjwjYoSUhQhH/jf7Xcf+kllL6w1Q=="
+    "sig": "r/SvenbpKUqNzO57m9ceCQ/3oYVsfwwVuGLElJuoo9lyKdW5shnQhSTjWGkIkEUdStiEgIbNiwLHNWxeCp/aIdeQoEv1LUnkDFqKtpArx3F4pSWPguKj1zpFYbgXArg2aNdIPqx+fJDNcvocUk36XHjKKzSMc3MhC1SHS6uwXlEuteGQePHHl0DzhIl0L3TWOJdms0NIsFzHtIxNfs6QWkxeZpzTANk90hU5Q3lKQCQ5tnXcKL9dXNnqDN9uA26Pnfwon+Gjd6TPqePYb9tgQYkSyv1KPYRo2ddCG8i7umgWIGN3tgrbRWHZaDX1AIriuf9tC+3EVu7Jrlf4jkH4nQ=="
 }
