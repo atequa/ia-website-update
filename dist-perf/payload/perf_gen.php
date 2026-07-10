@@ -1,5 +1,5 @@
 <?php
-/* PERF_ENGINE_VERSION: 2026.07.10 (moteur central mutualisé — MAJ signée + auto-publiée via CI ia-website-update) */
+/* PERF_ENGINE_VERSION: 2026.07.10 v3 (audits supervision + sortie token-gated — MAJ signée CI) */
 /**
  * Générateur de la page publique « Performances du site » (skill site-perf-page).
  * Exécuté par cron cPanel : php /home/<user>/clients/<site>/private/perf_gen.php
@@ -171,9 +171,12 @@ if (!empty($C['psi'])) {
             $j = $resp ? json_decode($resp, true) : null;
             $score = $j['lighthouseResult']['categories']['performance']['score'] ?? null;
             if ($score !== null) {
+                $A = $j['lighthouseResult']['audits'] ?? [];
                 $got[$strat] = [
                     'score' => (int)round($score * 100),
-                    'lcp' => $j['lighthouseResult']['audits']['largest-contentful-paint']['displayValue'] ?? '',
+                    'lcp' => $A['largest-contentful-paint']['displayValue'] ?? '',
+                    'cls' => $A['cumulative-layout-shift']['displayValue'] ?? '',
+                    'tbt' => $A['total-blocking-time']['displayValue'] ?? '',
                 ];
             }
         }
@@ -251,8 +254,11 @@ $out = rtrim($C['docroot'], '/') . '/' . ($C['output'] ?? 'performances.html');
 $tmp = $out . '.tmp';
 if (file_put_contents($tmp, $html) !== false) rename($tmp, $out);
 
-/* ============ 7. État machine pour le panneau de contrôle Atequa ============
-   Petit JSON non personnel publié dans /.well-known/, agrégé par panel.atequa-web.com. */
+/* ============ 7. Audits supervision + état machine (panneau Atequa) ============
+   JSON complet (public + CONFIDENTIEL) écrit à un chemin secret (status_token) : seul le
+   panneau, qui connaît le jeton, peut le lire. La page publique n'expose rien de tout ça. */
+$bareDomain = preg_replace('/^www\./i', '', (string)$C['domain']);
+
 $engineVer = PERF_ENGINE_VERSION_STR;
 $vf = __DIR__ . '/perf_version.json';
 if (is_file($vf)) { $vv = json_decode((string)file_get_contents($vf), true); if (!empty($vv['version'])) $engineVer = $vv['version']; }
@@ -261,22 +267,107 @@ $bvf = __DIR__ . '/bo_version.json';
 if (is_file($bvf)) { $bv = json_decode((string)file_get_contents($bvf), true); if (!empty($bv['version'])) $boVer = $bv['version']; }
 $aiByBot = [];
 foreach ($BOTS_IA as $name => $re) { $c = perf_count($state, $name, 30); if ($c > 0) $aiByBot[$name] = $c; }
-$status = [
-    'site'      => $C['domain'],
-    'generated' => date('c'),
-    'engine'    => $engineVer,
-    'backoffice'=> $boVer,
-    'ssl_until' => $sslDate,
-    'ssl_ts'    => $sslTs,
-    'psi'       => ['mobile' => $psiScore, 'desktop' => $psiScoreD, 'date' => $psiDate],
-    'ai_30d'    => $aiTotal30,
-    'ai_by_bot' => $aiByBot,
-    'weight_ko' => $weightKo,
+
+$httpGet = static function (string $url, int $t = 8, bool $headOnly = false) {
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => $t, CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_USERAGENT => 'atequa-audit', CURLOPT_NOBODY => $headOnly, CURLOPT_HEADER => $headOnly, CURLOPT_ENCODING => '']);
+    $r = curl_exec($ch); $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    return [$code, (string)$r];
+};
+
+/* --- Expiration du domaine (RDAP) [CONFIDENTIEL] --- */
+$domainTs = null; $domainDate = '';
+[$dc, $dbody] = $httpGet('https://rdap.org/domain/' . rawurlencode($bareDomain), 8);
+if ($dc === 200 && $dbody !== '') {
+    $rd = json_decode($dbody, true);
+    foreach (($rd['events'] ?? []) as $ev) {
+        if (($ev['eventAction'] ?? '') === 'expiration' && !empty($ev['eventDate'])) {
+            $domainTs = strtotime($ev['eventDate']) ?: null;
+        }
+    }
+    if ($domainTs) { $mois = ['', 'janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+        $domainDate = date('j', $domainTs) . ' ' . $mois[(int)date('n', $domainTs)] . ' ' . date('Y', $domainTs); }
+}
+
+/* --- Authentification e-mail (SPF / DKIM / DMARC) [CONFIDENTIEL] --- */
+$txt = static function (string $host) { $r = @dns_get_record($host, DNS_TXT) ?: []; $o = []; foreach ($r as $e) $o[] = $e['txt'] ?? ''; return implode(' ', $o); };
+$spf = stripos($txt($bareDomain), 'v=spf1') !== false;
+$dkim = stripos($txt('default._domainkey.' . $bareDomain), 'v=DKIM1') !== false;
+$dmarcTxt = $txt('_dmarc.' . $bareDomain);
+$dmarcPolicy = (stripos($dmarcTxt, 'v=DMARC1') !== false && preg_match('/\bp\s*=\s*(none|quarantine|reject)/i', $dmarcTxt, $mm)) ? strtolower($mm[1]) : null;
+
+/* --- En-têtes de sécurité + redirection HTTPS [CONFIDENTIEL] --- */
+[$hc, $hraw] = $httpGet($C['site_url'] . '/', 8, true);
+$hl = strtolower($hraw);
+$headers = [
+    'hsts'     => strpos($hl, 'strict-transport-security') !== false,
+    'nosniff'  => strpos($hl, 'x-content-type-options') !== false,
+    'referrer' => strpos($hl, 'referrer-policy') !== false,
+    'xframe'   => strpos($hl, 'x-frame-options') !== false || strpos($hl, 'content-security-policy') !== false,
 ];
+[$rc, $rraw] = $httpGet('http://' . $bareDomain . '/', 8, true);
+$httpsRedirect = (bool)preg_match('~location:\s*https://~i', $rraw);
+$secOk = $headers['hsts'] && $headers['nosniff'] && $headers['referrer'] && $headers['xframe'] && $httpsRedirect;
+
+/* --- Hygiène GEO/SEO [détail CONFIDENTIEL, badge public possible] --- */
+[$robC, $robB] = $httpGet($C['site_url'] . '/robots.txt', 6);
+$robotsAI = ($robC === 200) && (stripos($robB, 'GPTBot') !== false || !preg_match('/^\s*Disallow:\s*\/\s*$/mi', $robB));
+[$smC] = $httpGet($C['site_url'] . '/sitemap.xml', 6, true);
+[$llC] = $httpGet($C['site_url'] . '/llms.txt', 6, true);
+[$hpC, $hpB] = $httpGet($C['site_url'] . '/', 8);
+$jsonld = stripos($hpB, 'application/ld+json') !== false;
+$geo = ['robots_ai' => $robotsAI, 'sitemap' => ($smC === 200), 'llms' => ($llC === 200), 'jsonld' => $jsonld];
+$geoOk = $geo['robots_ai'] && $geo['sitemap'] && $geo['llms'] && $geo['jsonld'];
+
+/* --- EcoIndex (grade A–G + gCO2) [public possible] --- */
+$domNodes = $hpB !== '' ? preg_match_all('/<[a-zA-Z][^>]*>/', $hpB) : 0;
+$ecoQ = static function (array $q, float $v) { $n = count($q); for ($i = 1; $i < $n; $i++) if ($v < $q[$i]) return ($i - 1) + ($v - $q[$i - 1]) / max(0.0001, $q[$i] - $q[$i - 1]); return (float)($n - 1); };
+$qDom = [0,47,75,159,233,298,358,417,476,537,603,674,753,843,949,1076,1237,1459,1801,2479,594601];
+$qReq = [0,2,15,25,34,42,49,56,63,70,78,86,95,105,117,130,147,170,205,281,3920];
+$qSize = [0,1.37,2.79,4.02,5.22,6.69,8.6,11.2,15.1,20.8,32.4,52.5,80.5,116,159,207,265,343,455,657,4000];
+$ecoScore = null; $ecoGrade = null; $ecoCo2 = null;
+if ($domNodes > 0 && $reqCount > 0) {
+    $s = 100 - 5 * (3 * $ecoQ($qDom, $domNodes) + 2 * $ecoQ($qReq, $reqCount) + $ecoQ($qSize, $weightKo)) / 6;
+    $ecoScore = (int)round(max(0, min(100, $s)));
+    $ecoGrade = $ecoScore >= 80 ? 'A' : ($ecoScore >= 70 ? 'B' : ($ecoScore >= 55 ? 'C' : ($ecoScore >= 40 ? 'D' : ($ecoScore >= 25 ? 'E' : ($ecoScore >= 10 ? 'F' : 'G')))));
+    $ecoCo2 = round(2 + 2 * (100 - $ecoScore) / 100, 2);
+}
+
+$status = [
+    'site'       => $C['domain'],
+    'generated'  => date('c'),
+    'engine'     => $engineVer,
+    'backoffice' => $boVer,
+    'weight_ko'  => $weightKo,
+    'ai_30d'     => $aiTotal30,
+    'ai_by_bot'  => $aiByBot,
+    'psi'        => ['mobile' => $mob, 'desktop' => $desk, 'date' => $psiDate],   /* mob/desk incluent lcp/cls/tbt */
+    'ssl'        => ['until' => $sslDate, 'ts' => $sslTs],
+    'eco'        => ['score' => $ecoScore, 'grade' => $ecoGrade, 'gco2' => $ecoCo2, 'dom' => $domNodes],
+    /* ---- CONFIDENTIEL (panneau uniquement, canal token-gated) ---- */
+    'domain'     => ['until' => $domainDate, 'ts' => $domainTs],
+    'mail'       => ['spf' => $spf, 'dkim' => $dkim, 'dmarc' => $dmarcPolicy],
+    'security'   => $headers + ['https_redirect' => $httpsRedirect, 'ok' => $secOk],
+    'geo'        => $geo + ['ok' => $geoOk],
+];
+
 $wd = rtrim($C['docroot'], '/') . '/.well-known';
 @mkdir($wd, 0755, true);
-$sf = $wd . '/atequa-status.json'; $stmp = $sf . '.tmp';
-if (file_put_contents($stmp, json_encode($status, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) !== false) rename($stmp, $sf);
+$token = (string)($C['status_token'] ?? '');
+if ($token !== '') {
+    /* Canal protégé (chemin secret) : état COMPLET (public + confidentiel). */
+    $sf = $wd . '/atequa-' . $token . '.json';
+    $payload = $status;
+    if (is_file($wd . '/atequa-status.json')) @unlink($wd . '/atequa-status.json');   /* purge ancien public */
+} else {
+    /* SÉCURITÉ : sans jeton, ne JAMAIS publier le confidentiel → sous-ensemble public uniquement. */
+    $sf = $wd . '/atequa-status.json';
+    $payload = $status;
+    unset($payload['domain'], $payload['mail'], $payload['security'], $payload['geo']);
+}
+$stmp = $sf . '.tmp';
+if (file_put_contents($stmp, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) !== false) rename($stmp, $sf);
 
 file_put_contents($stateFile, json_encode($state, JSON_UNESCAPED_UNICODE));
 echo "OK " . date('c') . " ai30={$aiTotal30} poids={$weightKo}Ko\n";
