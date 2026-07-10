@@ -1,5 +1,5 @@
 <?php
-/* PERF_ENGINE_VERSION: 2026.07.10-1 (moteur central mutualisé — MAJ signée via ia-website-update) */
+/* PERF_ENGINE_VERSION: 2026.07.10 (moteur central mutualisé — MAJ signée + auto-publiée via CI ia-website-update) */
 /**
  * Générateur de la page publique « Performances du site » (skill site-perf-page).
  * Exécuté par cron cPanel : php /home/<user>/clients/<site>/private/perf_gen.php
