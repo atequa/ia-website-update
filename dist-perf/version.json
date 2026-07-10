@@ -1,0 +1,12 @@
+{
+    "version": "2026.07.10-1",
+    "enabled": true,
+    "files": [
+        {
+            "url": "payload/perf_gen.php",
+            "dest": "payload/perf_gen.php",
+            "sha256": "71d8314cd9aceb583aa4885fe75e745da7e28780dc551c9458c8bb619c1ad991"
+        }
+    ],
+    "sig": "Ypky0rJPEjbdxCjaYHq3VSwDLBIDhqu0JLfvekbArann9Z+oYMYoMs9kQGf2uA8G+JTGqCXxdZ/w15D/xXmrUiYdltWE98sfs78ViZtsLCegoar73q2K1xYCeuPchVsvwvF9Anz23tyxYy19L2ZHVLQXAdNSs0c/HUJ5YW9clouMIZHavcxDV9oBVpBgD+I/7jwYN8PB6zH5Hkpa7ZZlKTVyr1HBWhcE+ILjwI4tjSBTGIO7aOAvAdCBQCZ0KlmaYGLRCO4cQs0Xpl0oLWoAvgL726kRONKIfFFiQ5m00lbd9c+lf8Q7Q2/DvqtfdHk4V1PlVt0hrw58szHRbLgoqg=="
+}
