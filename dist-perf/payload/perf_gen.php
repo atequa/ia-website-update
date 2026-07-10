@@ -244,9 +244,38 @@ if ($domNodes > 0 && $reqCount > 0) {
     $ecoGrade = $ecoScore >= 80 ? 'A' : ($ecoScore >= 70 ? 'B' : ($ecoScore >= 55 ? 'C' : ($ecoScore >= 40 ? 'D' : ($ecoScore >= 25 ? 'E' : ($ecoScore >= 10 ? 'F' : 'G')))));
     $ecoCo2 = round(2 + 2 * (100 - $ecoScore) / 100, 2);
 }
-$ecoBlock = $ecoGrade
-    ? '<p class="perf-num">' . $ecoGrade . '<small> EcoIndex — ' . $ecoScore . '/100</small></p><p>Environ ' . str_replace('.', ',', (string)$ecoCo2) . ' g de CO₂ par visite. Un site sobre, conçu pour peser le moins possible.</p>'
-    : '<p class="perf-num">—</p><p>Mesure de sobriété en cours.</p>';
+/* « Plus léger que X % des pages du web » : formule EcoIndex appliquée aux percentiles HTTP Archive
+   (mobile — Web Almanac : DOM 2024, poids+requêtes 2025). Estimation prudente (page médiane sur les 3). */
+$ecoBetter = null;
+if ($ecoScore !== null) {
+    $haPct = [[10, 180, 25, 516], [25, 342, 42, 1127], [50, 594, 72, 2164], [75, 1010, 116, 4119], [90, 1716, 179, 8337]];
+    $xs = []; $ys = [];
+    foreach ($haPct as [$p, $d, $rq, $sz]) {
+        $xs[] = $p;
+        $ys[] = (int)round(max(0, min(100, 100 - 5 * (3 * $ecoQ($qDom, $d) + 2 * $ecoQ($qReq, $rq) + $ecoQ($qSize, $sz)) / 6)));
+    }
+    $n = count($ys);
+    if ($ecoScore >= $ys[0]) $ecoBetter = 100 - $xs[0];
+    elseif ($ecoScore <= $ys[$n - 1]) $ecoBetter = 100 - $xs[$n - 1];
+    else for ($i = 1; $i < $n; $i++) if ($ys[$i] <= $ecoScore && $ecoScore <= $ys[$i - 1]) {
+        $frac = ($ecoScore - $ys[$i]) / max(1e-6, $ys[$i - 1] - $ys[$i]);
+        $ecoBetter = (int)round(100 - ($xs[$i] + ($xs[$i - 1] - $xs[$i]) * $frac));
+        break;
+    }
+}
+if ($ecoGrade) {
+    $tip = 'Méthode : formule officielle EcoIndex (poids de la page, nombre de requêtes et d\'éléments HTML) appliquée aux percentiles réels d\'HTTP Archive — des millions de pages analysées (Web Almanac). Estimation prudente.';
+    $better = $ecoBetter !== null
+        ? ' <strong>Plus léger que ~' . $ecoBetter . '&nbsp;% des pages du web.</strong> <span class="eco-info" tabindex="0" role="button" aria-label="Méthode de calcul">(?)<span class="eco-tip">' . $tip . '</span></span>'
+        : '';
+    $ecoBlock = '<div class="eco-wrap">'
+        . '<p class="perf-num">' . $ecoGrade . '<small> EcoIndex — ' . $ecoScore . '/100</small></p>'
+        . '<p>Environ ' . str_replace('.', ',', (string)$ecoCo2) . ' g de CO₂ par visite.' . $better . '</p>'
+        . '</div>'
+        . '<style>.eco-wrap{position:relative}.eco-info{cursor:help;font-weight:700;font-size:.8em;vertical-align:.25em;opacity:.55}.eco-info .eco-tip{position:absolute;top:100%;right:0;margin-top:.4rem;width:min(320px,100%);background:#1c2530;color:#fff;padding:.6rem .75rem;border-radius:.5rem;font-size:.78rem;font-weight:400;line-height:1.45;opacity:0;visibility:hidden;transition:opacity .15s;z-index:30;box-shadow:0 10px 30px rgba(0,0,0,.3)}.eco-info:hover .eco-tip,.eco-info:focus .eco-tip{opacity:1;visibility:visible}</style>';
+} else {
+    $ecoBlock = '<p class="perf-num">—</p><p>Mesure de sobriété en cours.</p>';
+}
 
 /* ============ 6. Rendu ============ */
 $tpl = (string)file_get_contents(__DIR__ . '/perf_template.html');
