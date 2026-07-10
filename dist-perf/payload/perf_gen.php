@@ -370,6 +370,21 @@ $geo = ['robots_ai' => $robotsAI, 'sitemap' => ($smC === 200), 'llms' => ($llC =
 $geoOk = $geo['robots_ai'] && $geo['sitemap'] && $geo['llms'] && $geo['jsonld'];
 /* EcoIndex ($ecoScore/$ecoGrade/$ecoCo2/$domNodes) calculé en 5ter (avant le rendu de la page). */
 
+/* --- Accès des bots IA : le pare-feu o2switch ne les bloque-t-il pas ? [CONFIDENTIEL] ---
+   Sonde la home en se faisant passer pour chaque bot ; un 403 = blocage à corriger. */
+$aiUA = [
+    'gptbot'     => 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; GPTBot/1.2; +https://openai.com/gptbot',
+    'claudebot'  => 'Mozilla/5.0 (compatible; ClaudeBot/1.0; +claudebot@anthropic.com)',
+    'perplexity' => 'Mozilla/5.0 (compatible; PerplexityBot/1.0; +https://perplexity.ai/perplexitybot)',
+];
+$aiAccess = [];
+foreach ($aiUA as $bot => $ua) {
+    $ch = curl_init($C['site_url'] . '/');
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_NOBODY => true, CURLOPT_TIMEOUT => 6, CURLOPT_FOLLOWLOCATION => true, CURLOPT_USERAGENT => $ua]);
+    curl_exec($ch); $aiAccess[$bot] = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+}
+$aiAccessOk = $aiAccess['gptbot'] > 0 && $aiAccess['gptbot'] < 400 && $aiAccess['claudebot'] < 400 && $aiAccess['perplexity'] < 400;
+
 $status = [
     'site'       => $C['domain'],
     'generated'  => date('c'),
@@ -386,6 +401,7 @@ $status = [
     'mail'       => ['spf' => $spf, 'dkim' => $dkim, 'dmarc' => $dmarcPolicy],
     'security'   => $headers + ['https_redirect' => $httpsRedirect, 'ok' => $secOk],
     'geo'        => $geo + ['ok' => $geoOk],
+    'ai_access'  => $aiAccess + ['ok' => $aiAccessOk],
 ];
 
 $wd = rtrim($C['docroot'], '/') . '/.well-known';
@@ -400,10 +416,38 @@ if ($token !== '') {
     /* SÉCURITÉ : sans jeton, ne JAMAIS publier le confidentiel → sous-ensemble public uniquement. */
     $sf = $wd . '/atequa-status.json';
     $payload = $status;
-    unset($payload['domain'], $payload['mail'], $payload['security'], $payload['geo']);
+    unset($payload['domain'], $payload['mail'], $payload['security'], $payload['geo'], $payload['ai_access']);
 }
 $stmp = $sf . '.tmp';
 if (file_put_contents($stmp, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) !== false) rename($stmp, $sf);
 
 file_put_contents($stateFile, json_encode($state, JSON_UNESCAPED_UNICODE));
+
+/* ============ 8. IndexNow différé — si le back-office a signalé une modif (fichier indexnow_pending),
+   on notifie les moteurs (→ feed indirect des IA). On n'efface le flag QUE si le ping réussit
+   (sinon retente au prochain cron). Le back-office écrit une URL par ligne (ou touche le fichier vide). */
+if (!empty($C['indexnow_key'])) {
+    $pf = __DIR__ . '/indexnow_pending';
+    if (is_file($pf)) {
+        $urls = array_values(array_filter(array_map('trim', (array)@file($pf))));
+        if (!$urls) {   /* flag sans URL précise → tout le sitemap */
+            $sm = @file_get_contents(rtrim($C['docroot'], '/') . '/sitemap.xml');
+            if ($sm && preg_match_all('~<loc>([^<]+)~', $sm, $mu)) $urls = $mu[1];
+        }
+        $host = preg_replace('~^https?://~', '', rtrim((string)$C['site_url'], '/'));   /* host BRUT (site_url peut inclure le schéma) */
+        $base = 'https://' . $host;
+        if (!$urls) $urls = [$base . '/'];
+        $urls = array_values(array_unique($urls));
+        $key = (string)$C['indexnow_key'];
+        $body = json_encode(['host' => $host, 'key' => $key,
+            'keyLocation' => $base . '/' . $key . '.txt', 'urlList' => $urls], JSON_UNESCAPED_SLASHES);
+        $ch = curl_init('https://api.indexnow.org/indexnow');
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15, CURLOPT_POST => true,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'], CURLOPT_POSTFIELDS => $body]);
+        curl_exec($ch); $inc = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+        @file_put_contents(__DIR__ . '/indexnow.log', date('c') . ' ' . count($urls) . ' url -> ' . $inc . "\n", FILE_APPEND);
+        if ($inc === 200 || $inc === 202) @unlink($pf);
+    }
+}
+
 echo "OK " . date('c') . " ai30={$aiTotal30} poids={$weightKo}Ko\n";
