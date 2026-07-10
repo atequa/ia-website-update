@@ -28,7 +28,7 @@ jobs:
           extensions: openssl
       - name: Version horodatée monotone
         id: v
-        run: echo "ver=$(date +%Y.%m.%d)-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+        run: echo "ver=$(date -u +%Y.%m.%d.%H%M%S)" >> "$GITHUB_OUTPUT"
       - name: Construire et signer le manifeste
         env:
           PERF_SIGN_PRIVKEY_B64: ${{ secrets.PERF_SIGN_PRIVKEY_B64 }}
