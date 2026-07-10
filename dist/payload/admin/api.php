@@ -48,6 +48,9 @@ function bo_history_add(string $id, string $summary, array $changed): void {
         if ($old && is_dir($d)) { foreach (glob($d.'/*') as $f) @unlink($f); @rmdir($d); }
     }
     bo_json_write(BO_HISTORY_FILE, $h);
+    // IndexNow différé : signale au cron perf (perf_gen.php §8) qu'une modif a eu lieu → il re-notifiera
+    // les moteurs au prochain passage (fichier vide = tout le sitemap). No-op si le site n'a pas d'indexnow_key.
+    if ($changed) @file_put_contents(BO_PRIVATE.'/indexnow_pending', '', LOCK_EX);
 }
 function bo_restore_snapshot(string $id): array {
     $d = BO_HISTORY.'/'.$id; $restored = [];
