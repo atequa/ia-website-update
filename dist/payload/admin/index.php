@@ -256,6 +256,7 @@ $('#email').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-login').cl
 
 <script>
 const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s); let token=null;
+let pageLabels={}; function labelOf(f){return pageLabels[f]||f;}
 const PROVS=<?=json_encode(array_map(fn($p)=>['id'=>$p['id'],'key_url'=>$p['key_url']??'','free'=>!empty($p['free'])],$providers), JSON_UNESCAPED_UNICODE)?>;
 const HTML_PAGES=<?=json_encode($html_pages, JSON_UNESCAPED_UNICODE)?>;
 async function api(action,data,isForm){const opt={method:'POST'};
@@ -302,12 +303,12 @@ $('#btn-propose').onclick=async()=>{const req=$('#request').value.trim();if(!req
   try{const r=await api('propose',{request:req,page});clearInterval(iv);
     if(!r.ok){$('#propose-status').innerHTML='<span class="err">'+(r.error==='needs_key'?'Aucune clé pour le fournisseur (onglet Réglages).':(r.error||'Erreur'))+'</span>';}
     else{token=r.token;$('#prop-summary').textContent=r.summary;
-      $('#prop-files').innerHTML=r.changes.length?'<p class="small muted">Fichiers modifiés :</p><ul class="files">'+r.changes.map(c=>'<li><span class="pill">'+c.path+'</span></li>').join('')+'</ul>':'<p class="small muted">Aucun fichier à modifier (voir l\'explication).</p>';
+      $('#prop-files').innerHTML=r.changes.length?'<p class="small muted">Pages modifiées :</p><ul class="files">'+r.changes.map(c=>'<li><span class="pill">'+escapeHtml(labelOf(c.path))+'</span></li>').join('')+'</ul>':'<p class="small muted">Aucune page à modifier (voir l\'explication).</p>';
       $('#btn-apply').style.display=r.changes.length?'':'none';
       // aperçu : page modifiée prioritaire, sinon page choisie parmi toutes
       const changedHtml=r.changes.map(c=>c.path).filter(p=>p.endsWith('.html'));
       const opts=(changedHtml.length?changedHtml:HTML_PAGES);
-      $('#prev-page').innerHTML=opts.map(p=>'<option>'+p+'</option>').join('');
+      $('#prev-page').innerHTML=opts.map(p=>'<option value="'+escapeHtml(p)+'">'+escapeHtml(labelOf(p))+'</option>').join('');
       setPreview();
       $('#proposal').hidden=false;
       $('#propose-status').innerHTML='<span class="small muted">'+r.provider+' · '+(r.tokens.in+r.tokens.out)+' tokens</span>';refresh();}
@@ -318,11 +319,12 @@ $('#btn-propose').onclick=async()=>{const req=$('#request').value.trim();if(!req
 let frTotal=0;
 function frPages(){return [...$$('.fr-pg')].filter(b=>b.checked).map(b=>b.value);}
 function frHideApply(){if($('#fr-apply'))$('#fr-apply').style.display='none';}
-function frBoxes(pgs){return pgs.map(p=>'<label><input type="checkbox" class="fr-pg" value="'+escapeHtml(p)+'" checked>'+escapeHtml(p)+'</label>').join('');}
-async function loadPages(){let pgs=HTML_PAGES;
-  try{const r=await api('list_pages');if(r&&r.ok&&r.pages&&r.pages.length)pgs=r.pages;}catch(e){}
+function frBoxes(pgs){return pgs.map(p=>'<label><input type="checkbox" class="fr-pg" value="'+escapeHtml(p.file)+'" checked>'+escapeHtml(p.label)+'</label>').join('');}
+async function loadPages(){let pgs=HTML_PAGES.map(f=>({file:f,label:f}));
+  try{const r=await api('list_pages');if(r&&r.ok&&r.pages&&r.pages.length)pgs=r.pages.map(p=>typeof p==='string'?{file:p,label:p}:{file:p.file,label:p.label||p.file});}catch(e){}
+  pageLabels={};pgs.forEach(p=>pageLabels[p.file]=p.label);
   if($('#fr-pages'))$('#fr-pages').innerHTML=frBoxes(pgs);
-  if($('#ai-page'))$('#ai-page').innerHTML='<option value="">— Choisir une page —</option>'+pgs.map(p=>'<option value="'+escapeHtml(p)+'">'+escapeHtml(p)+'</option>').join('');}
+  if($('#ai-page'))$('#ai-page').innerHTML='<option value="">— Choisir une page —</option>'+pgs.map(p=>'<option value="'+escapeHtml(p.file)+'">'+escapeHtml(p.label)+'</option>').join('');}
 loadPages();
 if($('#fr-pages'))$('#fr-pages').addEventListener('change',frHideApply);
 ['fr-find','fr-repl'].forEach(id=>{const el=$('#'+id);if(el)el.addEventListener('input',frHideApply);});
@@ -395,7 +397,7 @@ $('#request').addEventListener('paste',async(e)=>{
 async function loadHistory(){const el=$('#hist-list');el.innerHTML='<li class="muted small">Chargement…</li>';
   try{const r=await api('history');
     if(!r.ok||!r.entries.length){el.innerHTML='<li class="muted small">Aucune modification enregistrée pour l\'instant.</li>';return;}
-    el.innerHTML=r.entries.map(e=>'<li><div><div>'+escapeHtml(e.summary)+'</div><div class="when">'+e.date+(e.changed&&e.changed.length?' · '+e.changed.join(', '):'')+'</div></div><button class="btn btn-ghost btn-restore" data-id="'+e.id+'">↩︎ Revenir à avant</button></li>').join('');
+    el.innerHTML=r.entries.map(e=>'<li><div><div>'+escapeHtml(e.summary)+'</div><div class="when">'+e.date+(e.changed&&e.changed.length?' · '+e.changed.map(f=>escapeHtml(labelOf(f))).join(', '):'')+'</div></div><button class="btn btn-ghost btn-restore" data-id="'+e.id+'">↩︎ Revenir à avant</button></li>').join('');
     $$('.btn-restore').forEach(b=>b.onclick=async()=>{ if(!confirm('Revenir à l\'état d\'avant cette modification ?'))return;
       b.disabled=true;b.textContent='…'; const r=await api('restore',{id:b.dataset.id});
       if(r.ok){alert('Restauré ✔');loadHistory();}else{alert('Erreur : '+(r.error||''));b.disabled=false;}});

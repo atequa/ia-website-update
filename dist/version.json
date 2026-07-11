@@ -1,5 +1,5 @@
 {
-    "version": "2026.07.11-4",
+    "version": "2026.07.11-5",
     "files": [
         {
             "url": "payload/bo_llm.php",
@@ -14,12 +14,12 @@
         {
             "url": "payload/admin/index.php",
             "dest": "docroot/admin/index.php",
-            "sha256": "4aeda3fe45b14cc31fded166ef83a6f2a2a0bc3383a62d41abe958f406b47355"
+            "sha256": "0fbf833dbc8f8ce6783b41288490308977fa35028a8f630306aa67a901605829"
         },
         {
             "url": "payload/admin/api.php",
             "dest": "docroot/admin/api.php",
-            "sha256": "7b2afc1568a3b96dbc79eb15b1f3779af2bf23a43640721fc2db9850cf512de2"
+            "sha256": "cf6b819ec81f309938cfe06ebd3fd325c2fa5e93564fcaef8b2fb82ab2df1ab3"
         },
         {
             "url": "payload/admin/preview.php",
@@ -27,5 +27,5 @@
             "sha256": "b89ff86988b515a49eedc319a819f402855bbe345ba14548aa865eec6b59cf8f"
         }
     ],
-    "sig": "P7lXmaCLPW0NB/fd8MyEnnyUKbBf6U7LPpDlxsWT4QiKb/dGtMHbs5Vz2QQ4IBf5og/ZhJjPbGKajcBkpwUKO2xNKsA+IDmgTTl6CEV+ivDKTFBZF9kzpxn1YKg1PB3FCx7h+2cySCPiQTctOVOuBnoOw8Y5HeUBC+ZSJXsagqqOLOF+6NS9pYuoi9Tlv7VLmQ90xGARFaQJVvqGfFeVfOkN/RgUgXql2v5LYCYsMt3Afc5FpcRrrumEs/V6vuoOXxepjQg+6FPs0IWpJ/hlLu08eitXXzT8CCCWgWRTdclIYayH1w7vY6w+cXGCAQ1Z3HCCfZYIejkcpaNSGLD2GA=="
+    "sig": "N5x+B+ZpeE+ZkVv7o+ojHbt/YfTsau+ylbHHBGXeBoDamNi+Q/rlvS2Anv50/DRQcyT1Etz7cC96i85/VT03ULMvTCAWHcFLW00+4PL5jkHPHTqOQfDIVKlGUC2cHmidHuilwVz0X1jVRPu5ujZ0Gnw7VGTZPzHfEEpQB3kNoBJwPs0MPkbPCx/CHNC9ypd2wHt+hj/l89Gk6zncyA0H/V7Sw5L0+bKIi2YAtSDp7YS1blgIxVjZQXnIkvTnJ0NSUc38iyjaStTknpdJE8u6nH1OWTDp01gGlJnuH5WBXcvK7CHlqC0RYjrDvc99cMvD5aCM4jW1zJt8sHR4yz9xfw=="
 }

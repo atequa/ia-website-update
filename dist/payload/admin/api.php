@@ -42,6 +42,20 @@ function bo_html_pages(): array {
     sort($out);
     return $out;
 }
+// Nom LISIBLE d'une page pour le client (ex. index.html → « Accueil », sinon dérivé du <title>).
+function bo_page_label(string $file): string {
+    if ($file === 'index.html') return 'Accueil';
+    $head = (string)@file_get_contents(BO_DOCROOT.'/'.$file, false, null, 0, 2000);
+    if (preg_match('~<title[^>]*>(.*?)</title>~is', $head, $m)) {
+        $t = trim(html_entity_decode(strip_tags($m[1]), ENT_QUOTES, 'UTF-8'));
+        // enlève le suffixe " · NomDuSite" / " - NomDuSite" (séparateur entouré d'espaces)
+        $parts = preg_split('~\s+[·|–—-]\s+~u', $t);
+        $t = trim($parts[0] ?? '');
+        if ($t !== '') return mb_substr($t, 0, 40);
+    }
+    $n = str_replace('-', ' ', preg_replace('~\.html$~', '', $file));
+    return function_exists('mb_convert_case') ? mb_convert_case($n, MB_CASE_TITLE, 'UTF-8') : ucfirst($n);
+}
 function bo_snapshot_all(string $id): void {
     $d = BO_HISTORY.'/'.$id; @mkdir($d, 0700, true);
     $names = BO_EDITABLE;
@@ -171,7 +185,11 @@ if ($action === 'update') {
     out(bo_run_update());
 }
 
-if ($action === 'list_pages') { out(['ok'=>true, 'pages'=>bo_html_pages()]); }
+if ($action === 'list_pages') {
+    $out = [];
+    foreach (bo_html_pages() as $f) $out[] = ['file'=>$f, 'label'=>bo_page_label($f)];
+    out(['ok'=>true, 'pages'=>$out]);
+}
 
 /* ---- Édition ---- */
 function editable_path(string $name): ?string {
