@@ -132,7 +132,7 @@ if ($action === 'logout') { bo_logout(); out(['ok'=>true]); }
 $ctrl = bo_control_state();
 if (in_array($action,['propose','apply','replace','undo','restore','upload','delete_image','update','set_key','set_provider'],true) && !$ctrl['enabled'])
     fail(403, $ctrl['message'] !== '' ? $ctrl['message'] : "Accès suspendu. Contactez votre prestataire.");
-if (in_array($action,['set_key','set_provider'],true) && $ctrl['mode']==='managed')
+if (in_array($action,['set_key','set_provider'],true) && ($ctrl['mode']==='managed' || bo_gateway_enabled()))
     fail(403, "Le fournisseur et la clé sont gérés par votre prestataire.");
 
 function usage_today(): array {
@@ -147,8 +147,9 @@ function usage_record(int $in=0, int $out=0, int $calls=0): void {
 }
 
 if ($action === 'status') {
-    $sel = bo_selected_id();
-    $provs = array_map(fn($p)=>[
+    $gw = bo_gateway_enabled();
+    $sel = $gw ? '' : bo_selected_id();
+    $provs = $gw ? [] : array_map(fn($p)=>[
         'id'=>$p['id'],'label'=>$p['label'],'free'=>!empty($p['free']),
         'key_url'=>$p['key_url'] ?? '', 'model'=>$p['model'] ?? '',
         'free_note'=>$p['free_note'] ?? '',
@@ -159,6 +160,7 @@ if ($action === 'status') {
     out(['ok'=>true,'email'=>$user,'providers'=>$provs,'selected'=>$sel,
          'configured'=>bo_is_configured(),'calls_today'=>$u['calls'],'tokens_today'=>$u['in']+$u['out'],'cap'=>BO_DAILY_CALLS,
          'has_history'=>!empty(bo_json_read(BO_HISTORY_FILE)),'version'=>$ver,
+         'gateway'=>$gw,'budget'=>$gw ? bo_gateway_status() : null,   // jauge mensuelle € (null si passerelle injoignable)
          'enabled'=>$ctrl['enabled'],'mode'=>$ctrl['mode'],'message'=>$ctrl['message']]);
 }
 
@@ -209,10 +211,14 @@ if ($action === 'propose') {
     if ($req==='') fail(422, "Demande vide.");
     if (mb_strlen($req) > 4000) fail(422, "Demande trop longue.");
     if (!bo_is_configured()) fail(409, "needs_key");
-    if (usage_today()['calls'] >= BO_DAILY_CALLS) fail(429, "Plafond de ".BO_DAILY_CALLS." requêtes/jour atteint. Réessayez demain.");
+    $gw = bo_gateway_enabled();            // passerelle : quota mensuel € géré côté central (plus de plafond/jour local)
+    if (!$gw && usage_today()['calls'] >= BO_DAILY_CALLS) fail(429, "Plafond de ".BO_DAILY_CALLS." requêtes/jour atteint. Réessayez demain.");
 
-    $pid = bo_selected_id(); $p = bo_provider($pid); $key = bo_get_key($pid);
-    if (!$p) fail(409, "needs_key");
+    $p = null; $key = '';
+    if (!$gw) {
+        $pid = bo_selected_id(); $p = bo_provider($pid); $key = bo_get_key($pid);
+        if (!$p) fail(409, "needs_key");
+    }
 
     // Ciblage d'UNE page : corpus limité à cette seule page → beaucoup plus rapide, pas de dépassement de délai.
     $page = basename((string)($_POST['page'] ?? ''));
@@ -223,14 +229,17 @@ if ($action === 'propose') {
         $files = is_file($pp) ? [$page => file_get_contents($pp)] : [];
         $rules .= "\n- Tu ne modifies QUE le fichier « ".$page." ». Ne renvoie AUCUN autre fichier.";
     } else {
+        if ($gw) fail(422, "Choisissez la page à modifier.");   // la passerelle travaille page par page
         $files = read_site_files();
         $page = '';
     }
+    if ($gw && !isset($files[$page])) fail(422, "Page introuvable.");
     $corpus=''; foreach ($files as $n=>$c) $corpus .= "\n===== FICHIER: $n =====\n".$c."\n";
 
     usage_record(0, 0, 1);                 // compte la requête
     @set_time_limit(200);                  // certains modèles (ex. GLM-4.6) répondent en ~1-2 min
-    $r = bo_llm_edit($p, $key, $rules, $corpus, $req);
+    $r = $gw ? bo_edit_gateway($page, (string)$files[$page], $req)
+             : bo_llm_edit($p, $key, $rules, $corpus, $req);
     if (!$r['ok']) fail(502, $r['error']);
     usage_record((int)($r['in']??0), (int)($r['out']??0), 0);   // ajoute les tokens consommés
     $parsed = $r['parsed'];
@@ -250,7 +259,8 @@ if ($action === 'propose') {
     file_put_contents(BO_PROPOSALS.'/'.$token.'.json', json_encode(['changes'=>$changes,'summary'=>$parsed['summary']], JSON_UNESCAPED_UNICODE), LOCK_EX);
     out(['ok'=>true,'token'=>$token,'summary'=>$parsed['summary'],
          'changes'=>array_map(fn($c)=>['path'=>$c['path'],'old_len'=>$c['old_len'],'new_len'=>$c['new_len']], $changes),
-         'tokens'=>['in'=>$r['in']??0,'out'=>$r['out']??0],'provider'=>$p['label']]);
+         'tokens'=>['in'=>$r['in']??0,'out'=>$r['out']??0],
+         'provider'=>$gw ? (string)($r['label'] ?? 'Assistant') : $p['label']]);
 }
 
 if ($action === 'apply') {

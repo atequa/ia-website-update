@@ -37,6 +37,12 @@ const BO_MAGIC_TTL = 900; const BO_SESSION_TTL = 5184000;
 const BO_DAILY_CALLS = 80; const BO_MAX_TOKENS = 16000; const BO_CONTROL_TTL = 600;
 const BO_DEFAULT_MODE = 'self';
 
+// --- Passerelle IA centrale (Phase 1) — l'appel LLM passe par atequa-web ---
+// URL de la passerelle + jeton bearer PROPRE AU SITE (brut ici, hors docroot ; hashé côté passerelle).
+// Laisser vide pour revenir aux adaptateurs directs (bo_secret.json + clé par fournisseur).
+const BO_GATEWAY_URL = '__GATEWAY_URL__';        // ex: https://www.atequa-web.com/ia
+const BO_SITE_TOKEN  = '__SITE_TOKEN__';
+
 // --- Canal central (clé publique commune — voir .env.backoffice ; PAS secrète) ---
 const BO_UPDATE_PUBKEY  = '__PUBKEY__';
 const BO_UPDATE_BASEURL = 'https://raw.githubusercontent.com/atequa/ia-website-update/main/dist/';

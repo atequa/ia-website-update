@@ -18,6 +18,7 @@ if (isset($_GET['login'])) {
 $user = bo_current_user();
 $ctrl = $user ? bo_control_state() : ['enabled'=>true,'mode'=>BO_DEFAULT_MODE,'message'=>''];
 $managed = ($ctrl['mode'] === 'managed');
+$gateway = bo_gateway_enabled();   // passerelle centrale : plus de choix de fournisseur/modèle côté client
 if (!$user) $state='login';
 elseif (!$ctrl['enabled']) $state='suspended';
 elseif (!bo_is_configured()) $state = $managed ? 'pending' : 'setup';
@@ -171,7 +172,7 @@ $('#email').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-login').cl
           <button class="iconbtn" id="btn-mic" type="button" title="Dicter à la voix" hidden>🎤</button>
           <span class="small" id="upload-status"></span>
           <span class="spacer"></span>
-<?php if(!$managed): ?>          <select class="mode-sel" id="mode-sel" title="Qualité des réponses"></select>
+<?php if(!$managed && !$gateway): ?>          <select class="mode-sel" id="mode-sel" title="Qualité des réponses"></select>
 <?php endif; ?>          <button class="btn btn-navy" id="btn-propose">Préparer</button>
         </div>
       </div>
@@ -235,10 +236,10 @@ $('#email').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-login').cl
   <!-- ===== RÉGLAGES ===== -->
   <section data-section="settings" hidden>
     <div class="card">
-      <h2>Consommation (aujourd'hui)</h2>
+      <h2><?= $gateway ? 'Budget d\'édition (mois en cours)' : 'Consommation (aujourd\'hui)' ?></h2>
       <p class="muted small" id="usage-line">…</p>
     </div>
-    <?php if(!$managed): ?>
+    <?php if(!$managed && !$gateway): ?>
     <div class="card">
       <h2>Fournisseur IA</h2>
       <label class="lbl">Fournisseur actif (changez-en si le résultat ne vous convient pas)</label>
@@ -272,6 +273,16 @@ $$('.topnav a[data-view]').forEach(a=>a.onclick=()=>{
 
 async function refresh(){try{const s=await api('status');
   if($('#ver'))$('#ver').textContent=s.version;
+  if(s.gateway){ /* passerelle : jauge budget mensuelle (% en gros, € en petit) */
+    const b=s.budget, eur=v=>(Math.round(v*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}),
+      fr=d=>(d||'').split('-').reverse().join('/');
+    if($('#quota')){const q=$('#quota');
+      if(b){q.textContent='📊 '+b.pct_used+'%';q.title='Budget d\'édition du mois : '+eur(b.spent_eur)+' € utilisés sur '+eur(b.budget_eur+b.credit_eur)+' € · remis à zéro le '+fr(b.resets_on);}
+      else{q.textContent='📊 —';q.title='Jauge budget momentanément indisponible';}}
+    if($('#usage-line')){
+      if(b){$('#usage-line').innerHTML='<span style="font-size:1.6rem;font-weight:700;color:var(--ink)">'+b.pct_used+'&nbsp;%</span> du budget mensuel utilisé <span class="muted small">('+eur(b.spent_eur)+' € sur '+eur(b.budget_eur+b.credit_eur)+' €'+(b.credit_eur>0?', dont '+eur(b.credit_eur)+' € de recharge':'')+')</span><br><span class="muted">'+b.requests_month+' demande'+(b.requests_month>1?'s':'')+' ce mois-ci · budget remis à zéro le '+fr(b.resets_on)+' · besoin de plus&nbsp;? contactez votre prestataire.</span>';}
+      else{$('#usage-line').innerHTML='<span class="muted">Jauge budget momentanément indisponible — l\'édition reste possible.</span>';}}
+    return;}
   const _p=s.providers.find(x=>x.id===s.selected);
   if($('#quota')){const pct=s.cap?Math.round(s.calls_today/s.cap*100):0;const q=$('#quota');q.textContent='📊 '+pct+'%';q.title=s.calls_today+'/'+s.cap+' requêtes aujourd\'hui · ~'+(s.tokens_today||0).toLocaleString('fr-FR')+' tokens'+(_p&&_p.free?' · fournisseur gratuit':'');}
   const pp=s.providers.find(x=>x.id===s.selected);

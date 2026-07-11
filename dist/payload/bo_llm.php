@@ -37,8 +37,46 @@ function bo_get_key(string $pid): string { return (string)(bo_secret()['keys'][$
 function bo_set_key(string $pid, string $key): bool { $s = bo_secret(); $s['keys'][$pid] = $key; if ($s['provider']==='') $s['provider']=$pid; return bo_secret_save($s); }
 function bo_set_provider(string $pid): bool { $s = bo_secret(); $s['provider'] = $pid; return bo_secret_save($s); }
 function bo_is_configured(): bool {
+    if (bo_gateway_enabled()) return true;       // passerelle : rien à configurer côté client
     $pid = bo_selected_id();
     return $pid !== '' && bo_get_key($pid) !== '';
+}
+
+/* ---- Passerelle IA centrale (Phase 1) ----
+ * Le site n'appelle plus le fournisseur : il envoie {page, content, request} à la passerelle
+ * atequa-web (jeton bearer par site, quota € et clé fournisseur côté central).
+ * Actif quand bo_config définit BO_GATEWAY_URL + BO_SITE_TOKEN ; sinon repli adaptateurs directs. */
+function bo_gateway_enabled(): bool {
+    return defined('BO_GATEWAY_URL') && BO_GATEWAY_URL !== ''
+        && defined('BO_SITE_TOKEN') && BO_SITE_TOKEN !== '';
+}
+function bo_gateway_http(string $method, string $path, ?array $body, int $timeout): array {
+    $ch = curl_init(rtrim(BO_GATEWAY_URL, '/') . $path);
+    $opts = [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => $timeout, CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . BO_SITE_TOKEN, 'Content-Type: application/json']];
+    if ($method === 'POST') { $opts[CURLOPT_POST] = true; $opts[CURLOPT_POSTFIELDS] = json_encode($body, JSON_UNESCAPED_UNICODE); }
+    curl_setopt_array($ch, $opts);
+    $resp = curl_exec($ch); $http = curl_getinfo($ch, CURLINFO_HTTP_CODE); $err = curl_error($ch); curl_close($ch);
+    return [$http, $resp === false ? null : $resp, $err];
+}
+/** Édition via la passerelle. Retour homogène avec bo_llm_edit : {ok, parsed|error, in, out}. */
+function bo_edit_gateway(string $page, string $content, string $req): array {
+    [$http, $resp, $err] = bo_gateway_http('POST', '/edit', ['page' => $page, 'content' => $content, 'request' => $req], 190);
+    if ($resp === null) return ['ok' => false, 'error' => "Service d'édition injoignable : $err"];
+    $d = json_decode($resp, true);
+    if (!is_array($d)) return ['ok' => false, 'error' => "Réponse du service d'édition illisible."];
+    if ($http !== 200 || empty($d['ok'])) return ['ok' => false, 'error' => (string)($d['error'] ?? "Erreur du service d'édition (HTTP $http).")];
+    return ['ok' => true,
+        'parsed' => ['summary' => (string)($d['summary'] ?? ''), 'changes' => (array)($d['changes'] ?? [])],
+        'in' => (int)($d['tokens']['in'] ?? 0), 'out' => (int)($d['tokens']['out'] ?? 0),
+        'label' => (string)($d['model_label'] ?? 'Assistant')];
+}
+/** Jauge budget mensuelle (nourrit l'UI). null si passerelle injoignable — l'UI reste utilisable. */
+function bo_gateway_status(): ?array {
+    [$http, $resp, ] = bo_gateway_http('GET', '/status', null, 8);
+    if ($resp === null || $http !== 200) return null;
+    $d = json_decode($resp, true);
+    return (is_array($d) && !empty($d['ok'])) ? $d : null;
 }
 
 /* ---- JSON robuste ---- */
