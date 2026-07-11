@@ -17,6 +17,10 @@ PRIVDIR=$(getval O2_PRIVATE_DIR); HOME_DIR="${PRIVDIR%/private}"
 PUB=$(grep -m1 '^BO_UPDATE_PUBKEY=' "$CEN/../.env.backoffice" | cut -d= -f2-)
 SESSION_SECRET=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 48)
 [ -n "$HOME_DIR" ] || { echo "O2_PRIVATE_DIR manquant dans $ENVF"; exit 1; }
+# Docroot ABSOLU : dérivé de O2_REMOTE_LIVE (relatif au home FTP = /home/<user>).
+# Nomenclatures possibles : public_html (anciens sites) ou clients/<site>/www (récents).
+CPUSER=$(getval O2_CPANEL_USER); REMOTE_LIVE=$(getval O2_REMOTE_LIVE)
+if [ -n "$CPUSER" ] && [ -n "$REMOTE_LIVE" ]; then DOCROOT="/home/$CPUSER/$REMOTE_LIVE"; else DOCROOT="$HOME_DIR/public_html"; fi
 mkdir -p "$SITE/private"
 
 EDITABLE="["
@@ -25,7 +29,7 @@ EDITABLE="${EDITABLE%,}]"
 
 sed -e "s#__SITE_NAME__#$SITE_NAME#g" -e "s#__MAIL_FROM__#$MAIL_FROM#g" -e "s#__SITE_ID__#$SITE_ID#g" \
     -e "s#__CLIENT_EMAIL__#$CLIENT_EMAIL#g" -e "s#__SESSION_SECRET__#$SESSION_SECRET#g" \
-    -e "s#__HOME__#$HOME_DIR#g" -e "s#__PUBKEY__#$PUB#g" \
+    -e "s#__HOME__#$HOME_DIR#g" -e "s#__DOCROOT__#$DOCROOT#g" -e "s#__PUBKEY__#$PUB#g" \
     "$CEN/install/private/bo_config.template.php" > "$SITE/private/bo_config.php"
 php -r '$p=$argv[1];$s=file_get_contents($p);$s=preg_replace("/const BO_EDITABLE = \[[^\]]*\];/","const BO_EDITABLE = ".$argv[2].";",$s);file_put_contents($p,$s);' "$SITE/private/bo_config.php" "$EDITABLE"
 php -l "$SITE/private/bo_config.php" >/dev/null

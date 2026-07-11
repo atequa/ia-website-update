@@ -17,7 +17,7 @@ const BO_AUTHORIZED_EMAILS = ['__CLIENT_EMAIL__', 'delgoffe@gmail.com'];
 const BO_SIGNING_SECRET = '__SESSION_SECRET__';
 
 // --- Chemins serveur (adapter au home du compte) ---
-const BO_DOCROOT     = '__HOME__/public_html';
+const BO_DOCROOT     = '__DOCROOT__';
 const BO_PRIVATE     = '__HOME__/private';
 const BO_SECRET_FILE = '__HOME__/private/bo_secret.json';
 const BO_BACKUPS     = '__HOME__/private/bo_backups';
