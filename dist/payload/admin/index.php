@@ -183,7 +183,6 @@ $('#email').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-login').cl
         <button class="chip" type="button" data-tpl="Ajoute une actualité sur la page d'accueil : …">📣 Ajouter une actu</button>
         <button class="chip" type="button" data-tpl="Corrige les fautes d'orthographe de la page d'accueil.">✅ Corriger les fautes</button>
       </div>
-      <div id="uploads" class="uploads"></div>
     </div>
 
     <div class="card">
@@ -323,7 +322,7 @@ function frBoxes(pgs){return pgs.map(p=>'<label><input type="checkbox" class="fr
 async function loadPages(){let pgs=HTML_PAGES;
   try{const r=await api('list_pages');if(r&&r.ok&&r.pages&&r.pages.length)pgs=r.pages;}catch(e){}
   if($('#fr-pages'))$('#fr-pages').innerHTML=frBoxes(pgs);
-  if($('#ai-page'))$('#ai-page').innerHTML='<option value="">— Choisir une page —</option>'+pgs.map(p=>'<option value="'+escapeHtml(p)+'">'+escapeHtml(p)+'</option>').join('')+'<option value="__all__">Tout le site (plus lent)</option>';}
+  if($('#ai-page'))$('#ai-page').innerHTML='<option value="">— Choisir une page —</option>'+pgs.map(p=>'<option value="'+escapeHtml(p)+'">'+escapeHtml(p)+'</option>').join('');}
 loadPages();
 if($('#fr-pages'))$('#fr-pages').addEventListener('change',frHideApply);
 ['fr-find','fr-repl'].forEach(id=>{const el=$('#'+id);if(el)el.addEventListener('input',frHideApply);});
@@ -361,7 +360,7 @@ $('#btn-attach').onclick=()=>$('#image').click();
 $('#image').onchange=async()=>{const f=$('#image').files[0];if(!f)return;await doUpload(f);$('#image').value='';};
 async function doUpload(f){$('#upload-status').innerHTML='<span class="spinner"></span> envoi…';
   const fd=new FormData();fd.append('image',f); const r=await api('upload',fd,true);
-  if(r.ok){$('#upload-status').innerHTML='<span class="ok">Ajouté : <code>'+r.filename+'</code></span>';loadUploads();}
+  if(r.ok){$('#upload-status').innerHTML='<span class="ok">Ajouté : <code>'+r.filename+'</code> — vous pouvez maintenant y faire référence dans votre demande.</span>';}
   else $('#upload-status').innerHTML='<span class="err">'+(r.error||'Erreur')+'</span>';}
 /* suggestions cliquables : remplit la zone et place le curseur sur le premier « … » */
 $$('#chips .chip').forEach(c=>c.onclick=()=>{const t=$('#request');const tpl=c.dataset.tpl;
@@ -383,18 +382,12 @@ if($('#mode-sel'))$('#mode-sel').onchange=async()=>{if($('#mode-sel').disabled)r
     rec.onresult=(e)=>{let txt='';for(let i=0;i<e.results.length;i++)txt+=e.results[i][0].transcript;$('#request').value=base+txt;};
     try{rec.start();}catch(_){}};
 })();
-async function loadUploads(){const el=$('#uploads');if(!el)return;
-  try{const r=await api('list_uploads');if(!r.ok)return;
-    el.innerHTML=r.files.map(f=>{const ext=f.split('.').pop().toLowerCase();const isImg=['jpg','jpeg','png','webp','gif','svg'].includes(ext);const inner=isImg?'<img src="/'+f+'" alt="">':'<a class="filecard" href="/'+f+'" target="_blank" rel="noopener">📄<span>'+ext.toUpperCase()+'</span></a>';return '<div class="thumb">'+inner+'<button class="x" data-f="'+f+'" title="Supprimer">×</button><div class="fn">'+escapeHtml(f.replace('assets/',''))+'</div></div>';}).join('');
-    el.querySelectorAll('.x').forEach(b=>b.onclick=async()=>{if(!confirm('Supprimer '+b.dataset.f+' ?'))return;const r=await api('delete_image',{filename:b.dataset.f});if(r.ok){if($('#upload-status'))$('#upload-status').textContent='';loadUploads();}else alert(r.error||'Erreur');});
-  }catch(e){}}
-loadUploads();
 $('#request').addEventListener('paste',async(e)=>{
   const items=(e.clipboardData&&e.clipboardData.items)?e.clipboardData.items:[];
   for(const it of items){ if(it.type&&it.type.indexOf('image')===0){ const blob=it.getAsFile(); if(!blob)continue; e.preventDefault();
     $('#upload-status').innerHTML='<span class="spinner"></span> collage…';
     const fd=new FormData();fd.append('image',blob,'collage.png'); const r=await api('upload',fd,true);
-    if(r.ok){const t=$('#request');const a=t.selectionStart||t.value.length,b2=t.selectionEnd||t.value.length;t.value=t.value.slice(0,a)+' '+r.filename+' '+t.value.slice(b2);$('#upload-status').innerHTML='<span class="ok">Image collée : <code>'+r.filename+'</code></span>';loadUploads();}
+    if(r.ok){const t=$('#request');const a=t.selectionStart||t.value.length,b2=t.selectionEnd||t.value.length;t.value=t.value.slice(0,a)+' '+r.filename+' '+t.value.slice(b2);$('#upload-status').innerHTML='<span class="ok">Image collée : <code>'+r.filename+'</code></span>';}
     else $('#upload-status').innerHTML='<span class="err">'+(r.error||'Erreur')+'</span>'; }}
 });
 
