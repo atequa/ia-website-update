@@ -81,15 +81,27 @@ $action = $_POST['action'] ?? $_GET['action'] ?? '';
 if ($action === 'login_request') {
     $email = strtolower(trim((string)($_POST['email'] ?? '')));
     if (!bo_throttle('login_'.($_SERVER['REMOTE_ADDR'] ?? '0'), 8)) fail(429, "Merci de patienter quelques secondes.");
-    if (filter_var($email, FILTER_VALIDATE_EMAIL) && bo_email_authorized($email)) {
-        $url = bo_magic_url(bo_create_magic($email));
-        bo_send_magic_link($email, $url);
-        // Copie PRIVÉE hors docroot (récupérable par le prestataire via cPanel/FTP tant que l'email
-        // ne délivre pas, ex. avant cutover DNS). JAMAIS renvoyée au navigateur.
-        @file_put_contents(BO_PRIVATE.'/bo_lastmagic.txt', date('c')." ".$email."\n".$url."\n");
+    $ok_addr = filter_var($email, FILTER_VALIDATE_EMAIL) && bo_email_authorized($email);
+    $magic_url = '';
+    if ($ok_addr) {
+        $magic_url = bo_magic_url(bo_create_magic($email));
+        // Copie PRIVÉE hors docroot, écrite AVANT l'envoi (récupérable par le prestataire via
+        // cPanel/FTP même si le mail tarde/échoue). JAMAIS renvoyée au navigateur.
+        @file_put_contents(BO_PRIVATE.'/bo_lastmagic.txt', date('c')." ".$email."\n".$magic_url."\n");
         @chmod(BO_PRIVATE.'/bo_lastmagic.txt', 0600);
     }
-    out(['ok'=>true, 'message'=>"Si cet email est autorisé, un lien de connexion vient d'être envoyé (vérifiez aussi les spams)."]);
+    $msg = ['ok'=>true, 'message'=>"Si cet email est autorisé, un lien de connexion vient d'être envoyé (vérifiez aussi les spams)."];
+    // L'envoi du mail peut être lent (vérif d'expéditeur exim sur certains hébergeurs). On répond au
+    // navigateur TOUT DE SUITE, puis on envoie en arrière-plan → le bouton ne reste jamais bloqué.
+    if ($ok_addr && (function_exists('litespeed_finish_request') || function_exists('fastcgi_finish_request'))) {
+        @ignore_user_abort(true); @set_time_limit(120);
+        echo json_encode($msg, JSON_UNESCAPED_UNICODE);
+        if (function_exists('litespeed_finish_request')) litespeed_finish_request(); else fastcgi_finish_request();
+        @bo_send_magic_link($email, $magic_url);
+        exit;
+    }
+    if ($ok_addr) @bo_send_magic_link($email, $magic_url);
+    out($msg);
 }
 
 /* ---- Auth requise ---- */
