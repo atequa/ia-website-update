@@ -14,7 +14,7 @@ if (!bo_current_user()) { http_response_code(403); exit('Non autorisé'); }
 
 $token = preg_replace('/[^a-f0-9]/', '', (string)($_GET['token'] ?? ''));
 $path  = basename((string)($_GET['path'] ?? ''));
-if (!in_array($path, BO_EDITABLE, true)) { http_response_code(404); exit('Fichier non autorisé'); }
+if (!in_array($path, BO_EDITABLE, true) && !(substr($path,-5)==='.html' && is_file(BO_DOCROOT.'/'.$path))) { http_response_code(404); exit('Fichier non autorisé'); }
 
 $pf = BO_PROPOSALS.'/'.$token.'.json';
 $changes = is_file($pf) ? (json_decode((string)file_get_contents($pf), true)['changes'] ?? []) : [];

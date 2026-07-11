@@ -161,7 +161,8 @@ $('#email').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-login').cl
     <div id="edit-status"></div>
     <div class="card">
       <h2>Demander une modification</h2>
-      <p class="muted small" style="margin-top:0">Décrivez ce que vous voulez changer — ou dictez-le avec le micro 🎤. Joignez une image/PDF avec le trombone 📎 (ou collez avec Ctrl/Cmd + V).</p>
+      <p class="muted small" style="margin-top:0">Choisissez la page à modifier, puis décrivez le changement — ou dictez-le avec le micro 🎤. Joignez une image/PDF avec le trombone 📎 (ou collez avec Ctrl/Cmd + V).</p>
+      <div class="row" style="margin:.2rem 0 .7rem"><label class="lbl" style="margin:0">📄 Page à modifier</label><select id="ai-page" style="width:auto;min-width:210px"><option value="">— Choisir une page —</option></select></div>
       <div class="composer">
         <textarea id="request" placeholder="Votre demande…  (micro 🎤 pour dicter)"></textarea>
         <div class="composer-bar">
@@ -295,9 +296,11 @@ $('#btn-update').onclick=async()=>{$('#update-status').innerHTML='<span class="s
 
 /* ---- Édition : préparer / aperçu / appliquer ---- */
 $('#btn-propose').onclick=async()=>{const req=$('#request').value.trim();if(!req)return;
+  const page=$('#ai-page')?$('#ai-page').value:'';
+  if($('#ai-page')&&page===''){$('#propose-status').innerHTML='<span class="err">Choisissez d\'abord la page à modifier.</span>';return;}
   $('#btn-propose').disabled=true;$('#proposal').hidden=true;
   const t0=Date.now();const tick=()=>{const s=Math.round((Date.now()-t0)/1000);if($('#propose-status'))$('#propose-status').innerHTML='<span class="spinner"></span> L\'assistant travaille… '+s+' s'+(s>=20?' <span class="muted">(certains modèles prennent 1 à 2 min)</span>':'');};tick();const iv=setInterval(tick,1000);
-  try{const r=await api('propose',{request:req});clearInterval(iv);
+  try{const r=await api('propose',{request:req,page});clearInterval(iv);
     if(!r.ok){$('#propose-status').innerHTML='<span class="err">'+(r.error==='needs_key'?'Aucune clé pour le fournisseur (onglet Réglages).':(r.error||'Erreur'))+'</span>';}
     else{token=r.token;$('#prop-summary').textContent=r.summary;
       $('#prop-files').innerHTML=r.changes.length?'<p class="small muted">Fichiers modifiés :</p><ul class="files">'+r.changes.map(c=>'<li><span class="pill">'+c.path+'</span></li>').join('')+'</ul>':'<p class="small muted">Aucun fichier à modifier (voir l\'explication).</p>';
@@ -317,11 +320,12 @@ let frTotal=0;
 function frPages(){return [...$$('.fr-pg')].filter(b=>b.checked).map(b=>b.value);}
 function frHideApply(){if($('#fr-apply'))$('#fr-apply').style.display='none';}
 function frBoxes(pgs){return pgs.map(p=>'<label><input type="checkbox" class="fr-pg" value="'+escapeHtml(p)+'" checked>'+escapeHtml(p)+'</label>').join('');}
-async function frLoadPages(){const el=$('#fr-pages');if(!el)return;
-  let pgs=HTML_PAGES;
+async function loadPages(){let pgs=HTML_PAGES;
   try{const r=await api('list_pages');if(r&&r.ok&&r.pages&&r.pages.length)pgs=r.pages;}catch(e){}
-  el.innerHTML=frBoxes(pgs);}
-if($('#fr-pages')){frLoadPages();$('#fr-pages').addEventListener('change',frHideApply);}
+  if($('#fr-pages'))$('#fr-pages').innerHTML=frBoxes(pgs);
+  if($('#ai-page'))$('#ai-page').innerHTML='<option value="">— Choisir une page —</option>'+pgs.map(p=>'<option value="'+escapeHtml(p)+'">'+escapeHtml(p)+'</option>').join('')+'<option value="__all__">Tout le site (plus lent)</option>';}
+loadPages();
+if($('#fr-pages'))$('#fr-pages').addEventListener('change',frHideApply);
 ['fr-find','fr-repl'].forEach(id=>{const el=$('#'+id);if(el)el.addEventListener('input',frHideApply);});
 if($('#fr-all'))$('#fr-all').onclick=()=>{const b=$$('.fr-pg');const on=[...b].some(x=>!x.checked);b.forEach(x=>x.checked=on);frHideApply();};
 if($('#fr-check'))$('#fr-check').onclick=async()=>{const find=$('#fr-find').value,pages=frPages();

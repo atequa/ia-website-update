@@ -175,12 +175,24 @@ if ($action === 'propose') {
 
     $pid = bo_selected_id(); $p = bo_provider($pid); $key = bo_get_key($pid);
     if (!$p) fail(409, "needs_key");
-    $files = read_site_files();
+
+    // Ciblage d'UNE page : corpus limité à cette seule page → beaucoup plus rapide, pas de dépassement de délai.
+    $page = basename((string)($_POST['page'] ?? ''));
+    $rules = BO_RULES;
+    if ($page !== '' && $page !== '__all__') {
+        if (!in_array($page, bo_html_pages(), true)) fail(422, "Page à modifier inconnue.");
+        $pp = BO_DOCROOT.'/'.$page;
+        $files = is_file($pp) ? [$page => file_get_contents($pp)] : [];
+        $rules .= "\n- Tu ne modifies QUE le fichier « ".$page." ». Ne renvoie AUCUN autre fichier.";
+    } else {
+        $files = read_site_files();
+        $page = '';
+    }
     $corpus=''; foreach ($files as $n=>$c) $corpus .= "\n===== FICHIER: $n =====\n".$c."\n";
 
     usage_record(0, 0, 1);                 // compte la requête
     @set_time_limit(200);                  // certains modèles (ex. GLM-4.6) répondent en ~1-2 min
-    $r = bo_llm_edit($p, $key, BO_RULES, $corpus, $req);
+    $r = bo_llm_edit($p, $key, $rules, $corpus, $req);
     if (!$r['ok']) fail(502, $r['error']);
     usage_record((int)($r['in']??0), (int)($r['out']??0), 0);   // ajoute les tokens consommés
     $parsed = $r['parsed'];
@@ -189,6 +201,7 @@ if ($action === 'propose') {
     $changes=[];
     foreach (($parsed['changes'] ?? []) as $c) {
         $name = basename((string)($c['path'] ?? ''));
+        if ($page !== '' && $name !== $page) continue;   // ciblage : on ignore tout autre fichier
         if (editable_path($name)===null) continue;
         $old = $files[$name] ?? ''; $new=(string)($c['new_content'] ?? '');
         if ($new===''||$new===$old) continue;
