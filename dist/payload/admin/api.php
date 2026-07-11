@@ -30,7 +30,15 @@ function bo_newid(): string { return date('Ymd-His').'-'.bin2hex(random_bytes(2)
 // Scan LIVE du docroot : toutes les pages .html réellement présentes (s'adapte aux pages ajoutées).
 function bo_html_pages(): array {
     $out = [];
-    foreach (glob(BO_DOCROOT.'/*.html') as $f) if (is_file($f)) $out[] = basename($f);
+    foreach (glob(BO_DOCROOT.'/*.html') as $f) {
+        if (!is_file($f)) continue;
+        // Découplage : on exclut les pages auto-générées par le module « Performances »
+        // (elles se signalent par un canonical vers /performances). Les éditer serait inutile
+        // (le cron perf les réécrit) ; on ne code aucun nom de fichier en dur.
+        $head = (string)@file_get_contents($f, false, null, 0, 2000);
+        if (strpos($head, 'rel="canonical"') !== false && preg_match('~href="[^"]*/performances"~', $head)) continue;
+        $out[] = basename($f);
+    }
     sort($out);
     return $out;
 }
