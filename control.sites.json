@@ -1,7 +1,17 @@
 {
   "version": "1",
   "sites": {
-    "educ-care": { "enabled": true, "mode": "self" },
-    "pandarestaurant": { "enabled": true, "mode": "self" }
+    "educ-care": {
+      "enabled": true,
+      "mode": "self"
+    },
+    "pandarestaurant": {
+      "enabled": true,
+      "mode": "self"
+    },
+    "metnos": {
+      "enabled": true,
+      "mode": "managed"
+    }
   }
 }
