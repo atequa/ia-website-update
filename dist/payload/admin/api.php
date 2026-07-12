@@ -192,6 +192,17 @@ if ($action === 'update') {
 
 if ($action === 'list_pages') {
     $out = [];
+    // Sections globales en tête — seulement si le site porte réellement la région, et via la passerelle.
+    if (bo_gateway_enabled()) {
+        foreach (['__menu__', '__footer__'] as $g) {
+            $tag = bo_global_tag($g);
+            foreach (bo_html_pages() as $f) {
+                if (bo_extract_region((string)file_get_contents(BO_DOCROOT.'/'.$f), $tag)) {
+                    $out[] = ['file'=>$g, 'label'=>bo_global_label($g), 'global'=>true]; break;
+                }
+            }
+        }
+    }
     foreach (bo_html_pages() as $f) $out[] = ['file'=>$f, 'label'=>bo_page_label($f)];
     out(['ok'=>true, 'pages'=>$out]);
 }
@@ -209,6 +220,82 @@ function read_site_files(): array {
     $f=[]; foreach (BO_EDITABLE as $n){ $p=BO_DOCROOT.'/'.$n; if (is_file($p)) $f[$n]=file_get_contents($p); } return $f;
 }
 
+/* ---- Sections GLOBALES (menu / pied de page — communes à toutes les pages) ----
+ * Le client édite le bloc UNE fois ; on propage le changement à toutes les pages qui portent
+ * la même section. Bloc délimité par <header>…</header> (menu) ou <footer>…</footer> (pied). */
+function bo_global_tag(string $page): ?string {
+    $m = ['__menu__' => 'header', '__footer__' => 'footer'];
+    return $m[$page] ?? null;
+}
+function bo_global_label(string $page): string {
+    return $page === '__menu__' ? 'Menu (tout le site)' : 'Pied de page (tout le site)';
+}
+// Extrait le 1er bloc <tag>…</tag>. Retourne [offset, longueur, contenu] ou null.
+function bo_extract_region(string $html, string $tag): ?array {
+    if (!preg_match('~<'.$tag.'\b[^>]*>.*?</'.$tag.'>~is', $html, $m, PREG_OFFSET_CAPTURE)) return null;
+    return [$m[0][1], strlen($m[0][0]), $m[0][0]];
+}
+// Diff minimal entre deux blocs → {find, replace} avec juste assez de contexte pour être UNIQUE
+// dans l'ancien bloc. null si le changement ne peut pas être isolé (l'appelant remplacera tout le bloc).
+function bo_region_diff(string $old, string $new): ?array {
+    if ($old === $new) return null;
+    $ol = strlen($old); $nl = strlen($new); $mm = min($ol, $nl);
+    $p = 0; while ($p < $mm && $old[$p] === $new[$p]) $p++;
+    $s = 0; while ($s < ($ol - $p) && $s < ($nl - $p) && $old[$ol-1-$s] === $new[$nl-1-$s]) $s++;
+    // Départ : au moins 24 car. de contexte de chaque côté (une insertion pure a un cœur vide → 'find'
+    // serait vide sinon). On élargit tant que 'find' n'est pas UNIQUE dans l'ancien bloc.
+    $fS = $p; $fE = $ol - $s; $rS = $p; $rE = $nl - $s; $ctx = 24;
+    while (true) {
+        $fs = max(0, $fS - $ctx); $fe = min($ol, $fE + $ctx);
+        $find = substr($old, $fs, $fe - $fs);
+        $replace = substr($new, max(0, $rS - $ctx), min($nl, $rE + $ctx) - max(0, $rS - $ctx));
+        if ($find !== '' && substr_count($old, $find) === 1) return ['find' => $find, 'replace' => $replace, 'mode' => 'diff'];
+        if (($fs === 0 && $fe === $ol) || $ctx > 6000) return null;
+        $ctx += 24;
+    }
+    return null;
+}
+// MENU : neutralise l'état actif (aria-current="page") pour comparer/propager de façon uniforme
+// d'une page à l'autre (chaque page marque un lien différent comme actif). Retourne
+// [blocSansActif, tagActifOriginal|null, tagActifSansAttribut|null].
+function bo_menu_strip_active(string $region): array {
+    if (!preg_match('~<a\b[^>]*\saria-current="page"[^>]*>~i', $region, $m)) return [$region, null, null];
+    $orig = $m[0];
+    $canon = preg_replace('~\s*aria-current="page"~i', '', $orig);
+    $pos = strpos($region, $orig);
+    return [substr($region, 0, $pos) . $canon . substr($region, $pos + strlen($orig)), $orig, $canon];
+}
+function bo_menu_restore_active(string $region, ?string $orig, ?string $canon): string {
+    if ($orig === null || $canon === null) return $region;
+    $pos = strpos($region, $canon);
+    return $pos === false ? $region : substr($region, 0, $pos) . $orig . substr($region, $pos + strlen($canon));
+}
+// Nouvelle version de la région d'UNE page après la modif globale, ou null si non applicable.
+// Pour le menu : on retire l'état actif, on applique le diff, on remet l'état actif propre à la page.
+function bo_global_new_region(string $tag, string $region, ?array $diff, string $oldB, string $newB): ?string {
+    $isMenu = ($tag === 'header');
+    if ($isMenu) [$canon, $orig, $cn] = bo_menu_strip_active($region);
+    else { $canon = $region; $orig = $cn = null; }
+    if ($diff && substr_count($canon, $diff['find']) === 1) {
+        $nc = str_replace($diff['find'], $diff['replace'], $canon);
+        return $isMenu ? bo_menu_restore_active($nc, $orig, $cn) : $nc;
+    }
+    if ($region === $oldB) return $newB;   // bloc identique à la référence → remplacement entier (footer)
+    return null;
+}
+// Pages du site où la modification globale s'appliquera (région présente + applicable).
+function bo_global_targets(string $tag, string $oldBlock, string $newBlock, ?array $diff): array {
+    $ok = []; $skip = [];
+    foreach (bo_html_pages() as $f) {
+        $hp = BO_DOCROOT.'/'.$f; if (!is_file($hp)) continue;
+        $reg = bo_extract_region((string)file_get_contents($hp), $tag);
+        if (!$reg) { $skip[] = $f; continue; }
+        $nr = bo_global_new_region($tag, $reg[2], $diff, $oldBlock, $newBlock);
+        if ($nr !== null && $nr !== $reg[2]) $ok[] = $f; else $skip[] = $f;
+    }
+    return ['ok' => $ok, 'skip' => $skip];
+}
+
 if ($action === 'propose') {
     $req = trim((string)($_POST['request'] ?? ''));
     if ($req==='') fail(422, "Demande vide.");
@@ -223,8 +310,57 @@ if ($action === 'propose') {
         if (!$p) fail(409, "needs_key");
     }
 
-    // Ciblage d'UNE page : corpus limité à cette seule page → beaucoup plus rapide, pas de dépassement de délai.
     $page = basename((string)($_POST['page'] ?? ''));
+
+    // ---- Section GLOBALE (menu / pied de page) : édite le bloc une fois, propage à tout le site ----
+    if (($gtag = bo_global_tag($page)) !== null) {
+        if (!$gw) fail(422, "Les sections globales passent par la passerelle centrale.");
+        // Page de référence = index.html (sinon 1re page portant la région).
+        $ref = null; $refHtml = ''; $reg = null;
+        foreach (array_merge(['index.html'], bo_html_pages()) as $cand) {
+            $cp = BO_DOCROOT.'/'.$cand;
+            if (!is_file($cp)) continue;
+            $h = file_get_contents($cp); $rr = bo_extract_region($h, $gtag);
+            if ($rr) { $ref = $cand; $refHtml = $h; $reg = $rr; break; }
+        }
+        if ($ref === null) fail(422, "Cette section n'existe pas sur ce site.");
+        $oldBlock = $reg[2];
+        usage_record(0, 0, 1);
+        @set_time_limit(200);
+        $r = bo_edit_gateway($page === '__menu__' ? 'menu' : 'pied de page', $oldBlock, $req);
+        if (!$r['ok']) fail(502, $r['error']);
+        usage_record((int)($r['in']??0), (int)($r['out']??0), 0);
+        $parsed = $r['parsed'];
+        if (!is_array($parsed) || !isset($parsed['summary'])) fail(502, "Réponse illisible. Réessayez.");
+        $newBlock = '';
+        foreach (($parsed['changes'] ?? []) as $c) { $nc = (string)($c['new_content'] ?? ''); if ($nc !== '') { $newBlock = $nc; break; } }
+
+        foreach (glob(BO_PROPOSALS.'/*.json') as $o) { if (is_file($o) && time()-filemtime($o) > 86400) @unlink($o); }
+        $token = bin2hex(random_bytes(8));
+        if ($newBlock === '' || $newBlock === $oldBlock) {   // rien à changer
+            file_put_contents(BO_PROPOSALS.'/'.$token.'.json', json_encode(['changes'=>[],'summary'=>$parsed['summary']], JSON_UNESCAPED_UNICODE), LOCK_EX);
+            out(['ok'=>true,'token'=>$token,'summary'=>$parsed['summary'],'changes'=>[],
+                 'tokens'=>['in'=>$r['in']??0,'out'=>$r['out']??0],'provider'=>(string)($r['label']??'Assistant'),'global'=>true]);
+        }
+        // Menu : diff calculé en espace « sans état actif » pour matcher toutes les pages.
+        if ($gtag === 'header') { [$oc] = bo_menu_strip_active($oldBlock); [$ncc] = bo_menu_strip_active($newBlock); $diff = bo_region_diff($oc, $ncc); }
+        else $diff = bo_region_diff($oldBlock, $newBlock);
+        $tgt = bo_global_targets($gtag, $oldBlock, $newBlock, $diff);
+        // Aperçu : la page de référence avec le nouveau bloc.
+        $previewHtml = substr($refHtml, 0, $reg[0]) . $newBlock . substr($refHtml, $reg[0] + $reg[1]);
+        file_put_contents(BO_PROPOSALS.'/'.$token.'.json', json_encode([
+            'global'=>$gtag, 'summary'=>$parsed['summary'],
+            'old_block'=>$oldBlock, 'new_block'=>$newBlock, 'diff'=>$diff,
+            'changes'=>[['path'=>$ref, 'new_content'=>$previewHtml]],   // pour l'aperçu uniquement
+        ], JSON_UNESCAPED_UNICODE), LOCK_EX);
+        out(['ok'=>true,'token'=>$token,'summary'=>$parsed['summary'],
+             'changes'=>[['path'=>$ref,'old_len'=>strlen($oldBlock),'new_len'=>strlen($newBlock)]],
+             'tokens'=>['in'=>$r['in']??0,'out'=>$r['out']??0],'provider'=>(string)($r['label']??'Assistant'),
+             'global'=>true, 'region_label'=>bo_global_label($page), 'preview_path'=>$ref,
+             'targets'=>count($tgt['ok']), 'skipped'=>count($tgt['skip'])]);
+    }
+
+    // Ciblage d'UNE page : corpus limité à cette seule page → beaucoup plus rapide, pas de dépassement de délai.
     $rules = BO_RULES;
     if ($page !== '' && $page !== '__all__') {
         if (!in_array($page, bo_html_pages(), true)) fail(422, "Page à modifier inconnue.");
@@ -271,7 +407,30 @@ if ($action === 'apply') {
     $pf = BO_PROPOSALS.'/'.$token.'.json';
     if ($token===''||!is_file($pf)) fail(404, "Proposition introuvable ou expirée.");
     $prop = json_decode((string)file_get_contents($pf), true);
-    $changes = $prop['changes'] ?? []; $summary = trim((string)($prop['summary'] ?? '')) ?: 'Modification';
+    $summary = trim((string)($prop['summary'] ?? '')) ?: 'Modification';
+
+    // ---- Application GLOBALE : propage le bloc menu/footer à toutes les pages qui le portent ----
+    if (!empty($prop['global'])) {
+        $tag = (string)$prop['global']; $diff = $prop['diff'] ?? null;
+        $oldB = (string)($prop['old_block'] ?? ''); $newB = (string)($prop['new_block'] ?? '');
+        $id = bo_newid(); bo_snapshot_all($id);
+        $written = [];
+        foreach (bo_html_pages() as $f) {
+            $hp = BO_DOCROOT.'/'.$f; if (!is_file($hp)) continue;
+            $h = file_get_contents($hp); $reg = bo_extract_region($h, $tag); if (!$reg) continue;
+            $newRegion = bo_global_new_region($tag, $reg[2], $diff, $oldB, $newB);
+            if ($newRegion !== null && $newRegion !== $reg[2]) {
+                $nh = substr($h, 0, $reg[0]) . $newRegion . substr($h, $reg[0] + $reg[1]);
+                if (file_put_contents($hp, $nh, LOCK_EX) !== false) $written[] = $f;
+            }
+        }
+        if (!$written) { @unlink($pf); fail(422, "Aucune page n'a pu être mise à jour (section absente ou différente partout)."); }
+        bo_history_add($id, $summary, $written);
+        @unlink($pf);
+        out(['ok'=>true, 'written'=>$written, 'global'=>true]);
+    }
+
+    $changes = $prop['changes'] ?? [];
     if (!$changes) fail(422, "Rien à appliquer.");
     $id = bo_newid(); bo_snapshot_all($id);                 // snapshot complet AVANT la modif
     $written=[]; foreach ($changes as $c){ $p=editable_path($c['path']); if ($p){ file_put_contents($p,$c['new_content'],LOCK_EX); $written[]=$c['path']; } }

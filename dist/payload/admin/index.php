@@ -314,7 +314,11 @@ $('#btn-propose').onclick=async()=>{const req=$('#request').value.trim();if(!req
   try{const r=await api('propose',{request:req,page});clearInterval(iv);
     if(!r.ok){$('#propose-status').innerHTML='<span class="err">'+(r.error==='needs_key'?'Aucune clé pour le fournisseur (onglet Réglages).':(r.error||'Erreur'))+'</span>';}
     else{token=r.token;$('#prop-summary').textContent=r.summary;
-      $('#prop-files').innerHTML=r.changes.length?'<p class="small muted">Pages modifiées :</p><ul class="files">'+r.changes.map(c=>'<li><span class="pill">'+escapeHtml(labelOf(c.path))+'</span></li>').join('')+'</ul>':'<p class="small muted">Aucune page à modifier (voir l\'explication).</p>';
+      if(r.global){
+        $('#prop-files').innerHTML=r.changes.length?'<p class="small muted">🌐 Cette modification s\'appliquera à <b>'+r.targets+' page'+(r.targets>1?'s':'')+'</b> du site en une fois'+(r.skipped?' <span class="muted">('+r.skipped+' page(s) avec une mise en page différente ne seront pas touchées)</span>':'')+'. Aperçu ci-contre.</p>':'<p class="small muted">Aucun changement à appliquer (voir l\'explication).</p>';
+      } else {
+        $('#prop-files').innerHTML=r.changes.length?'<p class="small muted">Pages modifiées :</p><ul class="files">'+r.changes.map(c=>'<li><span class="pill">'+escapeHtml(labelOf(c.path))+'</span></li>').join('')+'</ul>':'<p class="small muted">Aucune page à modifier (voir l\'explication).</p>';
+      }
       $('#btn-apply').style.display=r.changes.length?'':'none';
       // aperçu : page modifiée prioritaire, sinon page choisie parmi toutes
       const changedHtml=r.changes.map(c=>c.path).filter(p=>p.endsWith('.html'));
@@ -332,10 +336,17 @@ function frPages(){return [...$$('.fr-pg')].filter(b=>b.checked).map(b=>b.value)
 function frHideApply(){if($('#fr-apply'))$('#fr-apply').style.display='none';}
 function frBoxes(pgs){return pgs.map(p=>'<label><input type="checkbox" class="fr-pg" value="'+escapeHtml(p.file)+'" checked>'+escapeHtml(p.label)+'</label>').join('');}
 async function loadPages(){let pgs=HTML_PAGES.map(f=>({file:f,label:f}));
-  try{const r=await api('list_pages');if(r&&r.ok&&r.pages&&r.pages.length)pgs=r.pages.map(p=>typeof p==='string'?{file:p,label:p}:{file:p.file,label:p.label||p.file});}catch(e){}
+  try{const r=await api('list_pages');if(r&&r.ok&&r.pages&&r.pages.length)pgs=r.pages.map(p=>typeof p==='string'?{file:p,label:p}:{file:p.file,label:p.label||p.file,global:!!p.global});}catch(e){}
   pageLabels={};pgs.forEach(p=>pageLabels[p.file]=p.label);
-  if($('#fr-pages'))$('#fr-pages').innerHTML=frBoxes(pgs);
-  if($('#ai-page'))$('#ai-page').innerHTML='<option value="">— Choisir une page —</option>'+pgs.map(p=>'<option value="'+escapeHtml(p.file)+'">'+escapeHtml(p.label)+'</option>').join('');}
+  const reals=pgs.filter(p=>!p.global), globals=pgs.filter(p=>p.global);
+  // Chercher/Remplacer : uniquement de vraies pages (pas les sections globales).
+  if($('#fr-pages'))$('#fr-pages').innerHTML=frBoxes(reals);
+  // « Page à modifier » : sections globales en tête, puis les pages.
+  if($('#ai-page')){let h='<option value="">— Choisir une page —</option>';
+    if(globals.length){h+='<optgroup label="Tout le site">'+globals.map(p=>'<option value="'+escapeHtml(p.file)+'">'+escapeHtml(p.label)+'</option>').join('')+'</optgroup><optgroup label="Pages">';}
+    h+=reals.map(p=>'<option value="'+escapeHtml(p.file)+'">'+escapeHtml(p.label)+'</option>').join('');
+    if(globals.length)h+='</optgroup>';
+    $('#ai-page').innerHTML=h;}}
 loadPages();
 if($('#fr-pages'))$('#fr-pages').addEventListener('change',frHideApply);
 ['fr-find','fr-repl'].forEach(id=>{const el=$('#'+id);if(el)el.addEventListener('input',frHideApply);});
