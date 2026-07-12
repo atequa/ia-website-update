@@ -45,6 +45,9 @@ function bo_html_pages(): array {
 // Nom LISIBLE d'une page pour le client (ex. index.html → « Accueil », sinon dérivé du <title>).
 function bo_page_label(string $file): string {
     if ($file === 'index.html') return 'Accueil';
+    // La 404 tire un <title> « Page introuvable » → trompeur dans la liste (l'utilisateur croit à un bug).
+    // On la nomme explicitement pour que le client comprenne que c'est la page d'erreur du site.
+    if ($file === '404.html') return 'Page 404 (erreur)';
     $head = (string)@file_get_contents(BO_DOCROOT.'/'.$file, false, null, 0, 2000);
     if (preg_match('~<title[^>]*>(.*?)</title>~is', $head, $m)) {
         $t = trim(html_entity_decode(strip_tags($m[1]), ENT_QUOTES, 'UTF-8'));
