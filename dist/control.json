@@ -1,4 +1,4 @@
 {
-    "payload": "{\"version\":\"1\",\"sites\":{\"educ-care\":{\"enabled\":true,\"mode\":\"self\"},\"pandarestaurant\":{\"enabled\":true,\"mode\":\"self\"},\"metnos\":{\"enabled\":true,\"mode\":\"managed\"}}}",
-    "sig": "VwtJa4yE3l+o7F6R5Ivyw2odoT0BpTsMRshRpvG5tupER0+Xfi8b5mCxCqTtLVYJQpTdkYUX8LLQIVMSjAtaQMp0nPJItWR7PmRVGbc8lpmE8DZ5uoShFOgAbwSfM27dUzAZliCxRZ/bacYgzo+KXC/ZQIAgr+lO7lKpQ1kXE5WJq7tPC7cDN1OiuuEEkg6FRyE52QczzSYF3BE9sXc2rYs4SPlsXtNYIRmeQ/SFyWlfJqA2TM/LOpNDXFerybYzpO6VW/3gSj54VaUUeDaIZkXfQUNQo1ym9sh4UJyMuyfS7nUB030chHqBltNQs+iwqtbpZZgJ6vLqgv/gdfp0EQ=="
+    "payload": "{\"version\":\"1\",\"sites\":{\"educ-care\":{\"enabled\":true,\"mode\":\"self\"},\"pandarestaurant\":{\"enabled\":true,\"mode\":\"self\"},\"metnos\":{\"enabled\":true,\"mode\":\"managed\"},\"samazing\":{\"enabled\":true,\"mode\":\"managed\"}}}",
+    "sig": "TzjB+Hj8ejep8TmFwfPteq8k6shHVBUA9FIRJtzIaimZApatTRNGzWjNemlfsxDUfyL2AfIFwM+pOZMpOSPFInaopkUxWBYFaQ92I5Wov12QAWzE2FKGVs9RcvBh4Q5vGkJvog+UCJQw+b8DcnQ/3R8ZRd2YBNqoVAPB/ks2JXEUMNv/AZBWnYKSO8bo5tHa/sXGycK4LRQxfnk+Ok4p7Yk8vL6xZBpuaOswvfaYgqJ3YwugESAemtkM1rPyq1oXFcUVQTniP5K+Z0b2C2SWybNo5foGvp+siNx97TfgDwV9+a8Cj064h94iB3yI8iJs+bTcOG9xCXb18BUj5VID6g=="
 }

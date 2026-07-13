@@ -12,6 +12,10 @@
     "metnos": {
       "enabled": true,
       "mode": "managed"
+    },
+    "samazing": {
+      "enabled": true,
+      "mode": "managed"
     }
   }
 }
