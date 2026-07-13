@@ -246,6 +246,15 @@ function bo_extract_region(string $html, string $tag): ?array {
         if (preg_match('~<nav\b[^>]*>.*?</nav>~is', $html, $m, PREG_OFFSET_CAPTURE)) return [$m[0][1], strlen($m[0][0]), $m[0][0]];
         return null;
     }
+    if ($tag === 'footer') {
+        // Le footer du SITE est le DERNIER <footer> : un <footer> peut aussi servir d'attribution
+        // de citation dans le contenu (ex. « <footer>— Julie, présidente</footer> » sous un témoignage).
+        // On ne veut jamais éditer celui-là.
+        if (preg_match_all('~<footer\b[^>]*>.*?</footer>~is', $html, $ms, PREG_OFFSET_CAPTURE)) {
+            $m = end($ms[0]); return [$m[1], strlen($m[0]), $m[0]];
+        }
+        return null;
+    }
     if (!preg_match('~<'.$tag.'\b[^>]*>.*?</'.$tag.'>~is', $html, $m, PREG_OFFSET_CAPTURE)) return null;
     return [$m[0][1], strlen($m[0][0]), $m[0][0]];
 }

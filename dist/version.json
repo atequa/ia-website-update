@@ -1,5 +1,5 @@
 {
-    "version": "2026.07.13-1",
+    "version": "2026.07.13-2",
     "files": [
         {
             "url": "payload/bo_llm.php",
@@ -19,7 +19,7 @@
         {
             "url": "payload/admin/api.php",
             "dest": "docroot/admin/api.php",
-            "sha256": "c6dee6ae6cf4fe853bff298a1c41fcef6f7bc11543772cadcabbb76a3c75e9db"
+            "sha256": "eb1637d62135692aa53cc510693aa0285896317c4d084dc30527dc188ae88a68"
         },
         {
             "url": "payload/admin/preview.php",
@@ -27,5 +27,5 @@
             "sha256": "b89ff86988b515a49eedc319a819f402855bbe345ba14548aa865eec6b59cf8f"
         }
     ],
-    "sig": "p2EO1kZtWhPjg4xrTGZZhVysG6aTazbT4IxRAb9miZPt9Eri7t8s7Oo1XfWwkYAAHXLbF1VaGY5yPrkyRJMAfVM7mNcWq23jvCtgIAxQqL0ManFj7qsRvnbINftl6z+Strnr4wQhnsiRxCcR5LVrI69pMdVWaJccb7hcrub1B6shEwCyehljDd1wpZkMfr6qNzV9E+bYoDQaR+RdIDO2lrsAEP/5uvx0VKLFgHAlX9X6/jN4uEx5HtHGdsn3LTYI6NyT3NN5VKaSvhYetEREoUjZLtlR7mvmQd9r/DB3zN7kQYP/Ig8f5OKq5fNDYMZiQv83eaj47M24OV4rOOapeg=="
+    "sig": "ASbOtFRIIMmsXbaU0jQPEZqpwgDJxgb1yxUKCFBLG8wXcAFxsLu2Lq6VSh1mZ5ZfTTTBUPjdTJP3zCUOpJQZpCJxhAmFHF4yJjR4QNc7Qw2weOc+DBgeIlx/N+w+piLxN2sJr2Hov3zZbHyTXRkpiBZjqsSeer+EXSP3b2rEy+wWf7JUZct1rI9hbboRiJ7+VWRMpOXioIf7lWkm7H+Wq3JGmAdcKV410s/blU3954eAxl3VTdWGSK61E/J3nA3+shV7Tr59JJbbxyxnROrabynM5RT38BVn0kNeUXdJSaju1oBkVvWCKqLKVJoPzkzW04+xWfYLq4CqYG+MLPZuEw=="
 }
