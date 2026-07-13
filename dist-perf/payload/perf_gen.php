@@ -281,17 +281,24 @@ if ($ecoGrade) {
 $tpl = (string)file_get_contents(__DIR__ . '/perf_template.html');
 /* Auto-cicatrisation : un vieux gabarit migré avant l'ajout d'un bloc (ex. EcoIndex) n'a pas le
    placeholder → la section n'apparaîtrait jamais alors que le moteur, lui, s'auto-update. On insère
-   donc la carte manquante à la volée, avant la carte Sécurité (ancre stable = {{SSL_DATE}}). */
-$bo_perf_autoheal = static function ($tpl, $ph, $cardHtml) {
+   donc la carte manquante à la volée, juste avant la carte Sécurité (ancre stable = {{SSL_DATE}}).
+   Robustesse : on CLONE la balise d'ouverture de la carte voisine (sa classe exacte, quelle qu'elle
+   soit : « perf-card », « card glow-card »…) pour que la carte eco hérite du style du gabarit. */
+$bo_perf_autoheal = static function ($tpl, $ph, $h2, $inner) {
     if (strpos($tpl, $ph) !== false) { return $tpl; }        // déjà présent → rien à faire
     $anchor = strpos($tpl, '{{SSL_DATE}}');
     if ($anchor === false) { return $tpl; }                   // pas de carte Sécurité → on s'abstient
-    $cardStart = strrpos(substr($tpl, 0, $anchor), '<div class="perf-card"');
-    if ($cardStart === false) { return $tpl; }
-    return substr($tpl, 0, $cardStart) . $cardHtml . "\n" . substr($tpl, $cardStart);
+    // dernière ouverture <div ... class="...card..."> AVANT l'ancre = ouverture de la carte Sécurité
+    if (!preg_match_all('/<div\b[^>]*class="[^"]*card[^"]*"[^>]*>/i',
+                        substr($tpl, 0, $anchor), $m, PREG_OFFSET_CAPTURE)) {
+        return $tpl;
+    }
+    $last = end($m[0]);
+    $openTag = $last[0]; $cardStart = $last[1];
+    $ecoCard = $openTag . '<h2>' . $h2 . '</h2>' . $inner . '</div>';
+    return substr($tpl, 0, $cardStart) . $ecoCard . "\n" . substr($tpl, $cardStart);
 };
-$tpl = $bo_perf_autoheal($tpl, '{{ECO_BLOCK}}',
-    '<div class="perf-card"><h2>Sobriété numérique (EcoIndex)</h2>{{ECO_BLOCK}}</div>');
+$tpl = $bo_perf_autoheal($tpl, '{{ECO_BLOCK}}', 'Sobriété numérique (EcoIndex)', '{{ECO_BLOCK}}');
 $repl = [
     '{{DATE_MAJ}}'      => date('d/m/Y à H\hi'),
     '{{AI_TOTAL}}'      => (string)$aiTotal30,
