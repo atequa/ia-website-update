@@ -279,6 +279,19 @@ if ($ecoGrade) {
 
 /* ============ 6. Rendu ============ */
 $tpl = (string)file_get_contents(__DIR__ . '/perf_template.html');
+/* Auto-cicatrisation : un vieux gabarit migré avant l'ajout d'un bloc (ex. EcoIndex) n'a pas le
+   placeholder → la section n'apparaîtrait jamais alors que le moteur, lui, s'auto-update. On insère
+   donc la carte manquante à la volée, avant la carte Sécurité (ancre stable = {{SSL_DATE}}). */
+$bo_perf_autoheal = static function ($tpl, $ph, $cardHtml) {
+    if (strpos($tpl, $ph) !== false) { return $tpl; }        // déjà présent → rien à faire
+    $anchor = strpos($tpl, '{{SSL_DATE}}');
+    if ($anchor === false) { return $tpl; }                   // pas de carte Sécurité → on s'abstient
+    $cardStart = strrpos(substr($tpl, 0, $anchor), '<div class="perf-card"');
+    if ($cardStart === false) { return $tpl; }
+    return substr($tpl, 0, $cardStart) . $cardHtml . "\n" . substr($tpl, $cardStart);
+};
+$tpl = $bo_perf_autoheal($tpl, '{{ECO_BLOCK}}',
+    '<div class="perf-card"><h2>Sobriété numérique (EcoIndex)</h2>{{ECO_BLOCK}}</div>');
 $repl = [
     '{{DATE_MAJ}}'      => date('d/m/Y à H\hi'),
     '{{AI_TOTAL}}'      => (string)$aiTotal30,
