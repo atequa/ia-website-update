@@ -224,14 +224,28 @@ function read_site_files(): array {
  * Le client édite le bloc UNE fois ; on propage le changement à toutes les pages qui portent
  * la même section. Bloc délimité par <header>…</header> (menu) ou <footer>…</footer> (pied). */
 function bo_global_tag(string $page): ?string {
-    $m = ['__menu__' => 'header', '__footer__' => 'footer'];
+    // 'menu' = pseudo-région : détection robuste de la barre de navigation (voir bo_extract_region).
+    $m = ['__menu__' => 'menu', '__footer__' => 'footer'];
     return $m[$page] ?? null;
 }
 function bo_global_label(string $page): string {
     return $page === '__menu__' ? 'Menu (tout le site)' : 'Pied de page (tout le site)';
 }
-// Extrait le 1er bloc <tag>…</tag>. Retourne [offset, longueur, contenu] ou null.
+// Extrait un bloc du HTML. Retourne [offset, longueur, contenu] ou null.
+// Cas spécial 'menu' : la barre de navigation n'a pas la même balise selon les sites
+// (educ-care = <header> contenant un <nav> ; panda = <nav> direct, son <header> étant le hero).
+// Règle robuste : 1er <header> qui CONTIENT un <nav>, sinon le 1er <nav>.
 function bo_extract_region(string $html, string $tag): ?array {
+    if ($tag === 'menu') {
+        $off = 0;
+        while (preg_match('~<header\b[^>]*>.*?</header>~is', $html, $m, PREG_OFFSET_CAPTURE, $off)) {
+            $blk = $m[0][0]; $pos = $m[0][1];
+            if (stripos($blk, '<nav') !== false) return [$pos, strlen($blk), $blk];
+            $off = $pos + strlen($blk);
+        }
+        if (preg_match('~<nav\b[^>]*>.*?</nav>~is', $html, $m, PREG_OFFSET_CAPTURE)) return [$m[0][1], strlen($m[0][0]), $m[0][0]];
+        return null;
+    }
     if (!preg_match('~<'.$tag.'\b[^>]*>.*?</'.$tag.'>~is', $html, $m, PREG_OFFSET_CAPTURE)) return null;
     return [$m[0][1], strlen($m[0][0]), $m[0][0]];
 }
@@ -273,7 +287,7 @@ function bo_menu_restore_active(string $region, ?string $orig, ?string $canon): 
 // Nouvelle version de la région d'UNE page après la modif globale, ou null si non applicable.
 // Pour le menu : on retire l'état actif, on applique le diff, on remet l'état actif propre à la page.
 function bo_global_new_region(string $tag, string $region, ?array $diff, string $oldB, string $newB): ?string {
-    $isMenu = ($tag === 'header');
+    $isMenu = ($tag === 'menu');
     if ($isMenu) [$canon, $orig, $cn] = bo_menu_strip_active($region);
     else { $canon = $region; $orig = $cn = null; }
     if ($diff && substr_count($canon, $diff['find']) === 1) {
@@ -343,7 +357,7 @@ if ($action === 'propose') {
                  'tokens'=>['in'=>$r['in']??0,'out'=>$r['out']??0],'provider'=>(string)($r['label']??'Assistant'),'global'=>true]);
         }
         // Menu : diff calculé en espace « sans état actif » pour matcher toutes les pages.
-        if ($gtag === 'header') { [$oc] = bo_menu_strip_active($oldBlock); [$ncc] = bo_menu_strip_active($newBlock); $diff = bo_region_diff($oc, $ncc); }
+        if ($gtag === 'menu') { [$oc] = bo_menu_strip_active($oldBlock); [$ncc] = bo_menu_strip_active($newBlock); $diff = bo_region_diff($oc, $ncc); }
         else $diff = bo_region_diff($oldBlock, $newBlock);
         $tgt = bo_global_targets($gtag, $oldBlock, $newBlock, $diff);
         // Aperçu : la page de référence avec le nouveau bloc.
