@@ -1,4 +1,4 @@
 {
-    "payload": "{\"version\":\"1\",\"sites\":{\"educ-care\":{\"enabled\":true,\"mode\":\"self\"},\"pandarestaurant\":{\"enabled\":true,\"mode\":\"self\"},\"metnos\":{\"enabled\":true,\"mode\":\"managed\"},\"samazing\":{\"enabled\":true,\"mode\":\"managed\"}}}",
-    "sig": "TzjB+Hj8ejep8TmFwfPteq8k6shHVBUA9FIRJtzIaimZApatTRNGzWjNemlfsxDUfyL2AfIFwM+pOZMpOSPFInaopkUxWBYFaQ92I5Wov12QAWzE2FKGVs9RcvBh4Q5vGkJvog+UCJQw+b8DcnQ/3R8ZRd2YBNqoVAPB/ks2JXEUMNv/AZBWnYKSO8bo5tHa/sXGycK4LRQxfnk+Ok4p7Yk8vL6xZBpuaOswvfaYgqJ3YwugESAemtkM1rPyq1oXFcUVQTniP5K+Z0b2C2SWybNo5foGvp+siNx97TfgDwV9+a8Cj064h94iB3yI8iJs+bTcOG9xCXb18BUj5VID6g=="
+    "payload": "{\"version\":\"1\",\"sites\":{\"educ-care\":{\"enabled\":true,\"mode\":\"self\"},\"pandarestaurant\":{\"enabled\":true,\"mode\":\"self\"},\"metnos\":{\"enabled\":true,\"mode\":\"managed\"},\"samazing\":{\"enabled\":true,\"mode\":\"managed\"},\"centre-elleetlui\":{\"enabled\":true,\"mode\":\"managed\"}}}",
+    "sig": "njjY3Enxc8XktzUaoFyN8oEIUsnYatWM/+xQPyD2NAyCuW7UKLIphLyKf65QJYaShw43TqezkgjeaG/P2itPDhvWaA/X78d0i0THf/v2IUp71O04BPhvufp+GGbqT/RQzEDDRO+bqdkHacxmj++PPjvIynHEON3knrRY/G2iL0GGvsVakHDJm8WlZgQZvaint0Gb6Au0/4NvK4CkzgNFmR7gWzjkQaRLt7TqrzB90m4TTSmuHoyRoYwFD/3TbcaWA4ALpwRdD9sltZ7JYULRV8yv3mfR4SoYHjlSpmnp2HatSh+LLff9KqFCnfa6kFbruXtg8cw5joO9hZ8eUX65aA=="
 }

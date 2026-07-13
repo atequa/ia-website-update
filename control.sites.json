@@ -16,6 +16,10 @@
     "samazing": {
       "enabled": true,
       "mode": "managed"
+    },
+    "centre-elleetlui": {
+      "enabled": true,
+      "mode": "managed"
     }
   }
 }
