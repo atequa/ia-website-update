@@ -22,10 +22,12 @@ SITE_TOKEN=$(openssl rand -hex 32)
 TOKEN_HASH=$(printf %s "$SITE_TOKEN" | shasum -a 256 | cut -d' ' -f1)
 AI_SITES_FILE="${AI_SITES_FILE:-$CEN/../../atequa-web.com/private/ai_sites.json}"
 [ -n "$HOME_DIR" ] || { echo "O2_PRIVATE_DIR manquant dans $ENVF"; exit 1; }
-# Docroot ABSOLU : dérivé de O2_REMOTE_LIVE (relatif au home FTP = /home/<user>).
-# Nomenclatures possibles : public_html (anciens sites) ou clients/<site>/www (récents).
-CPUSER=$(getval O2_CPANEL_USER); REMOTE_LIVE=$(getval O2_REMOTE_LIVE)
-if [ -n "$CPUSER" ] && [ -n "$REMOTE_LIVE" ]; then DOCROOT="/home/$CPUSER/$REMOTE_LIVE"; else DOCROOT="$HOME_DIR/public_html"; fi
+# Docroot ABSOLU. Le préfixe du home compte varie (/home, /home2, /home3…) selon le serveur o2switch :
+# on le DÉRIVE d'O2_PRIVATE_DIR (ex. /home3/sc10dm88/clients/x/private → home compte /home3/sc10dm88),
+# jamais coder /home en dur (bug vécu : docroot /home/... alors que le compte est sur /home3/...).
+REMOTE_LIVE=$(getval O2_REMOTE_LIVE)
+ACCT_HOME=$(printf %s "$PRIVDIR" | grep -oE '^/home[0-9]*/[^/]+')
+if [ -n "$ACCT_HOME" ] && [ -n "$REMOTE_LIVE" ]; then DOCROOT="$ACCT_HOME/$REMOTE_LIVE"; else DOCROOT="$HOME_DIR/public_html"; fi
 mkdir -p "$SITE/private"
 
 EDITABLE="["
