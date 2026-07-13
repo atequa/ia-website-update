@@ -1,12 +1,12 @@
 {
-    "version": "2026.07.10.144701",
+    "version": "2026.07.13.174047",
     "enabled": true,
     "files": [
         {
             "url": "payload/perf_gen.php",
             "dest": "payload/perf_gen.php",
-            "sha256": "36d6bd4632bfa34fbcb134c7ab9a2482358bd3e0c167a77fcf0b4fa05cef4c20"
+            "sha256": "49a11cb448ffb0e04b6c552e89e339c8095c4a1184fca834fbf5748afb09dad4"
         }
     ],
-    "sig": "tVg+ipsW+Ao1EaqJN52AqEG5c8rAnD3OVAp+b454YBUg75YE6GPhnDkB+CIxpI5z6C2aFz338wNPMUqILvb+QY6VkCPLQ99DZDxtiHY1XAGt/FebJ+3uk8N5EOO3y2384RZN3XkpFNZfetAmr4RUR1HTSIuGH44MUZxaJUDqA8ER++oy6rrxBQQ90UcF0ZGrrY5oPux95PzntQ+BcWWQGv7m50qpBZDdtE5vGGo912nHRDjNMmc8jxGZwB4rPcOQhJ24xE+2b7u9EFDJ7mQwbaBNPHZdcXqEVx74kOLJRLDdDFO/MLc49vuJcRHRLZ15KaXGVKdAyYCFnOSjTA8C2A=="
+    "sig": "BiyhRdrzUccw9yqSnnCGlbtwtzh4gIoD07PmX+D/tpb4m46BcIHZs6st+jmhRQLs8YGfaRXja2qgyxb2l8fdK09CCjhd9pvC1kPnltgmhKnjb2I/GMf5yQCZgRlLvTWJII+WLQpoNjBJdFj0/gQjpLNLGAZow9cQBy2Yi5dy5WSnGuDHBgdUNCJTqO+BbrwLBKhpYQv9Gapd4xvVP1lj/ih6ZMJPDI5+Vi8fdFzWs6qE3znBSi3c4g1ciAoySZI17W0DGHGGYaKwT1BTk9ozvTcWrR6Ft7+U69GzNITRXgNY/ev2Gn0zley0BaKT+d32Y3+AG6sPe9O3atmW8NGqxQ=="
 }
