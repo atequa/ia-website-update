@@ -20,6 +20,10 @@
     "centre-elleetlui": {
       "enabled": true,
       "mode": "managed"
+    },
+    "couturieuse": {
+      "enabled": true,
+      "mode": "managed"
     }
   }
 }
