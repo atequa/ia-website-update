@@ -576,18 +576,13 @@ if ($action === 'upload') {
     out(['ok'=>true,'filename'=>$fn]);
 }
 
-const BO_CORE_ASSETS = ['logo.svg','portrait.webp','portrait.jpg','portrait.png','og-image.jpg','og-image.png','favicon.ico','favicon-32.png','favicon-180.png'];
 if ($action === 'list_uploads') {
     $up = bo_json_read(BO_UPLOADS_FILE);
-    // inclure aussi les images présentes dans /assets non protégées (ex. uploads antérieurs au suivi)
-    foreach (glob(BO_DOCROOT.'/assets/*') as $f) {
-        if (!is_file($f)) continue; $b = basename($f);
-        $ext = strtolower(pathinfo($b, PATHINFO_EXTENSION));
-        if (!in_array($ext, ['jpg','jpeg','png','webp','gif','svg','pdf','doc','docx','xls','xlsx','ppt','pptx','csv'], true)) continue;
-        if (in_array($b, BO_CORE_ASSETS, true)) continue;
-        $rel = 'assets/'.$b; if (!in_array($rel, $up, true)) $up[] = $rel;
-    }
-    $up = array_values(array_filter($up, fn($f)=>is_file(BO_DOCROOT.'/'.$f)));
+    if (!is_array($up)) $up = [];
+    // On ne liste QUE les fichiers réellement téléversés via l'admin (suivis dans bo_uploads.json) et
+    // encore présents. On NE globbe PLUS tout /assets/ : les images du design du site ne doivent JAMAIS
+    // apparaître dans la galerie « supprimables » (un client non technique pourrait effacer une vraie photo).
+    $up = array_values(array_filter($up, fn($f)=>is_string($f) && strpos($f,'assets/')===0 && is_file(BO_DOCROOT.'/'.$f)));
     bo_json_write(BO_UPLOADS_FILE, $up);
     out(['ok'=>true,'files'=>$up]);
 }
@@ -596,6 +591,13 @@ if ($action === 'delete_image') {
     $fn = (string)($_POST['filename'] ?? '');
     $up = bo_json_read(BO_UPLOADS_FILE);
     if (!in_array($fn,$up,true)) fail(404, "Image inconnue.");   // on ne supprime QUE des images téléversées ici
+    // Garde-fou : refuser si le fichier est ENCORE utilisé dans une page (sinon image cassée sur le site).
+    $bn = basename($fn);
+    foreach (bo_html_pages() as $pg) {
+        $html = (string)@file_get_contents(BO_DOCROOT.'/'.$pg);
+        if ($html !== '' && strpos($html, $bn) !== false)
+            fail(409, "Ce fichier est utilisé sur la page « ".bo_page_label($pg)." ». Retirez-le d'abord de la page (par une demande de modification), puis supprimez-le.");
+    }
     $rp = realpath(BO_DOCROOT.'/'.$fn); $base = realpath(BO_DOCROOT.'/assets');
     if ($rp && $base && strpos($rp,$base)===0 && is_file($rp)) @unlink($rp);
     bo_json_write(BO_UPLOADS_FILE, array_values(array_diff($up,[$fn])));

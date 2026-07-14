@@ -78,7 +78,13 @@ function opt_providers(array $providers, string $selected): string {
   .hist{list-style:none;padding:0;margin:.4rem 0}
   .hist li{border:1px solid var(--line);border-radius:.5rem;padding:.7rem .9rem;margin-bottom:.5rem;display:flex;justify-content:space-between;gap:.8rem;align-items:flex-start;flex-wrap:wrap}
   .hist .when{font-size:.78rem;color:var(--muted)}
-  .uploads{display:flex;flex-wrap:wrap;gap:.7rem;margin-top:.8rem}
+  .uploads{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.7rem;align-items:center}
+  .uploads .up-lbl{font-size:.8rem;color:var(--muted);width:100%;margin-bottom:.1rem}
+  .uploads .up{display:inline-flex;align-items:stretch;border:1px solid var(--line,#e2e8f0);border-radius:.5rem;overflow:hidden;background:#f8fafc}
+  .uploads .up-name{border:0;background:transparent;padding:.3rem .55rem;font:inherit;font-size:.82rem;color:#21386E;cursor:pointer;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .uploads .up-name:hover{background:#eef2ff;text-decoration:underline}
+  .uploads .up-del{border:0;border-left:1px solid var(--line,#e2e8f0);background:transparent;padding:0 .5rem;font-size:1rem;line-height:1;color:#b3261e;cursor:pointer}
+  .uploads .up-del:hover{background:#fdecea}
   .thumb{position:relative;width:96px}
   .thumb img{width:96px;height:72px;object-fit:cover;border:1px solid var(--line);border-radius:.4rem;background:#fff}
   .thumb .x{position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;border:0;background:#b3261e;color:#fff;cursor:pointer;font-weight:700;line-height:1;font-size:14px}
@@ -176,6 +182,7 @@ $('#email').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btn-login').cl
 <?php endif; ?>          <button class="btn btn-navy" id="btn-propose">Préparer</button>
         </div>
       </div>
+      <div class="uploads" id="uploads" hidden></div>
       <div class="small muted" id="propose-status" style="margin-top:.5rem"></div>
       <div class="chips" id="chips">
         <button class="chip" type="button" data-tpl="Remplace le texte « … » par « … »">✏️ Modifier un texte</button>
@@ -353,6 +360,7 @@ async function loadPages(){let pgs=HTML_PAGES.map(f=>({file:f,label:f}));
     if(globals.length)h+='</optgroup>';
     $('#ai-page').innerHTML=h;}}
 loadPages();
+loadUploads();
 if($('#fr-pages'))$('#fr-pages').addEventListener('change',frHideApply);
 ['fr-find','fr-repl'].forEach(id=>{const el=$('#'+id);if(el)el.addEventListener('input',frHideApply);});
 if($('#fr-all'))$('#fr-all').onclick=()=>{const b=$$('.fr-pg');const on=[...b].some(x=>!x.checked);b.forEach(x=>x.checked=on);frHideApply();};
@@ -390,11 +398,31 @@ $('#image').onchange=async()=>{const f=$('#image').files[0];if(!f)return;await d
 async function doUpload(f){$('#upload-status').innerHTML='<span class="spinner"></span> envoi…';
   try{
     const fd=new FormData();fd.append('image',f); const r=await api('upload',fd,true,90000);
-    if(r.ok){$('#upload-status').innerHTML='<span class="ok">Ajouté : <code>'+r.filename+'</code> — vous pouvez maintenant y faire référence dans votre demande.</span>';}
+    if(r.ok){$('#upload-status').innerHTML='<span class="ok">Ajouté : <code>'+escapeHtml(baseName(r.filename))+'</code> — cliquez-le ci-dessous pour l\'insérer dans votre demande.</span>';loadUploads();}
     else $('#upload-status').innerHTML='<span class="err">'+(r.error||'Erreur')+'</span>';
   }catch(e){ $('#upload-status').innerHTML='<span class="err">'+(e&&e.message==='timeout'
       ?'Envoi interrompu (connexion trop lente ou coupée). Réessayez.'
       :'Envoi impossible pour le moment. Vérifiez votre connexion et réessayez.')+'</span>'; }}
+/* ---- Galerie des fichiers envoyés : insérer au clic + supprimer ---- */
+function baseName(p){return String(p||'').split('/').pop();}
+function insertRef(ref){const t=$('#request');if(!t)return;const a=t.selectionStart??t.value.length,b=t.selectionEnd??t.value.length;
+  const before=t.value.slice(0,a),after=t.value.slice(b);
+  const p1=(before&&!/\s$/.test(before))?' ':'',p2=(after&&!/^\s/.test(after))?' ':'';
+  t.value=before+p1+ref+p2+after;const pos=(before+p1+ref).length;t.focus();t.setSelectionRange(pos,pos);}
+async function loadUploads(){const box=$('#uploads');if(!box)return;
+  try{const r=await api('list_uploads');const files=(r&&r.files)||[];
+    if(!files.length){box.hidden=true;box.innerHTML='';return;}
+    box.hidden=false;
+    box.innerHTML='<span class="up-lbl">Fichiers envoyés (cliquez le nom pour l\'insérer, × pour supprimer) :</span>'+
+      files.map(f=>'<span class="up"><button type="button" class="up-name" data-ref="'+escapeHtml(f)+'" title="Insérer dans la demande">'+escapeHtml(baseName(f))+'</button><button type="button" class="up-del" data-fn="'+escapeHtml(f)+'" title="Supprimer ce fichier">×</button></span>').join('');
+    box.querySelectorAll('.up-name').forEach(b=>b.onclick=()=>insertRef(b.dataset.ref));
+    box.querySelectorAll('.up-del').forEach(b=>b.onclick=()=>deleteUpload(b.dataset.fn,b));
+  }catch(e){box.hidden=true;}}
+async function deleteUpload(fn,btn){if(!confirm('Supprimer « '+baseName(fn)+' » ? Ce fichier ne sera plus disponible sur le site.'))return;
+  if(btn){btn.disabled=true;btn.textContent='…';}
+  try{const r=await api('delete_image',{filename:fn});
+    if(r&&r.ok){loadUploads();}else{alert('Suppression impossible : '+((r&&r.error)||''));if(btn){btn.disabled=false;btn.textContent='×';}}}
+  catch(e){alert('Suppression impossible.');if(btn){btn.disabled=false;btn.textContent='×';}}}
 /* suggestions cliquables : remplit la zone et place le curseur sur le premier « … » */
 $$('#chips .chip').forEach(c=>c.onclick=()=>{const t=$('#request');const tpl=c.dataset.tpl;
   t.value=(t.value.trim()?t.value.trim()+'\n':'')+tpl;t.focus();
@@ -421,7 +449,7 @@ $('#request').addEventListener('paste',async(e)=>{
     $('#upload-status').innerHTML='<span class="spinner"></span> collage…';
     try{
       const fd=new FormData();fd.append('image',blob,'collage.png'); const r=await api('upload',fd,true,90000);
-      if(r.ok){const t=$('#request');const a=t.selectionStart||t.value.length,b2=t.selectionEnd||t.value.length;t.value=t.value.slice(0,a)+' '+r.filename+' '+t.value.slice(b2);$('#upload-status').innerHTML='<span class="ok">Image collée : <code>'+r.filename+'</code></span>';}
+      if(r.ok){insertRef(r.filename);$('#upload-status').innerHTML='<span class="ok">Image collée et insérée : <code>'+escapeHtml(baseName(r.filename))+'</code></span>';loadUploads();}
       else $('#upload-status').innerHTML='<span class="err">'+(r.error||'Erreur')+'</span>';
     }catch(e){ $('#upload-status').innerHTML='<span class="err">'+(e&&e.message==='timeout'
         ?'Collage interrompu (connexion trop lente ou coupée). Réessayez.'
