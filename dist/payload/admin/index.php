@@ -260,9 +260,14 @@ const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s); let to
 let pageLabels={}; function labelOf(f){return pageLabels[f]||f;}
 const PROVS=<?=json_encode(array_map(fn($p)=>['id'=>$p['id'],'key_url'=>$p['key_url']??'','free'=>!empty($p['free'])],$providers), JSON_UNESCAPED_UNICODE)?>;
 const HTML_PAGES=<?=json_encode($html_pages, JSON_UNESCAPED_UNICODE)?>;
-async function api(action,data,isForm){const opt={method:'POST'};
+async function api(action,data,isForm,timeoutMs){const opt={method:'POST'};
   if(isForm){data.append('action',action);opt.body=data;}else{const b=new URLSearchParams(data||{});b.set('action',action);opt.body=b;opt.headers={'Content-Type':'application/x-www-form-urlencoded'};}
-  const r=await fetch('api.php',opt); if(r.status===401){location.reload();throw new Error('auth');} return r.json();}
+  // Filet anti-blocage : si le réseau cale, on abandonne au bout de timeoutMs plutôt que de tourner à
+  // l'infini. Par défaut aucun timeout (les propositions IA peuvent légitimement durer ~2 min).
+  let tid=null; if(timeoutMs){const ac=new AbortController();opt.signal=ac.signal;tid=setTimeout(()=>ac.abort(),timeoutMs);}
+  try{const r=await fetch('api.php',opt); if(r.status===401){location.reload();throw new Error('auth');} return r.json();}
+  catch(e){ if(e&&e.name==='AbortError') throw new Error('timeout'); throw e; }
+  finally{ if(tid) clearTimeout(tid); }}
 
 /* ---- navigation par onglets ---- */
 $$('.topnav a[data-view]').forEach(a=>a.onclick=()=>{
@@ -383,9 +388,13 @@ $('#btn-apply').onclick=async()=>{if(!token)return;$('#btn-apply').disabled=true
 $('#btn-attach').onclick=()=>$('#image').click();
 $('#image').onchange=async()=>{const f=$('#image').files[0];if(!f)return;await doUpload(f);$('#image').value='';};
 async function doUpload(f){$('#upload-status').innerHTML='<span class="spinner"></span> envoi…';
-  const fd=new FormData();fd.append('image',f); const r=await api('upload',fd,true);
-  if(r.ok){$('#upload-status').innerHTML='<span class="ok">Ajouté : <code>'+r.filename+'</code> — vous pouvez maintenant y faire référence dans votre demande.</span>';}
-  else $('#upload-status').innerHTML='<span class="err">'+(r.error||'Erreur')+'</span>';}
+  try{
+    const fd=new FormData();fd.append('image',f); const r=await api('upload',fd,true,90000);
+    if(r.ok){$('#upload-status').innerHTML='<span class="ok">Ajouté : <code>'+r.filename+'</code> — vous pouvez maintenant y faire référence dans votre demande.</span>';}
+    else $('#upload-status').innerHTML='<span class="err">'+(r.error||'Erreur')+'</span>';
+  }catch(e){ $('#upload-status').innerHTML='<span class="err">'+(e&&e.message==='timeout'
+      ?'Envoi interrompu (connexion trop lente ou coupée). Réessayez.'
+      :'Envoi impossible pour le moment. Vérifiez votre connexion et réessayez.')+'</span>'; }}
 /* suggestions cliquables : remplit la zone et place le curseur sur le premier « … » */
 $$('#chips .chip').forEach(c=>c.onclick=()=>{const t=$('#request');const tpl=c.dataset.tpl;
   t.value=(t.value.trim()?t.value.trim()+'\n':'')+tpl;t.focus();
@@ -410,9 +419,13 @@ $('#request').addEventListener('paste',async(e)=>{
   const items=(e.clipboardData&&e.clipboardData.items)?e.clipboardData.items:[];
   for(const it of items){ if(it.type&&it.type.indexOf('image')===0){ const blob=it.getAsFile(); if(!blob)continue; e.preventDefault();
     $('#upload-status').innerHTML='<span class="spinner"></span> collage…';
-    const fd=new FormData();fd.append('image',blob,'collage.png'); const r=await api('upload',fd,true);
-    if(r.ok){const t=$('#request');const a=t.selectionStart||t.value.length,b2=t.selectionEnd||t.value.length;t.value=t.value.slice(0,a)+' '+r.filename+' '+t.value.slice(b2);$('#upload-status').innerHTML='<span class="ok">Image collée : <code>'+r.filename+'</code></span>';}
-    else $('#upload-status').innerHTML='<span class="err">'+(r.error||'Erreur')+'</span>'; }}
+    try{
+      const fd=new FormData();fd.append('image',blob,'collage.png'); const r=await api('upload',fd,true,90000);
+      if(r.ok){const t=$('#request');const a=t.selectionStart||t.value.length,b2=t.selectionEnd||t.value.length;t.value=t.value.slice(0,a)+' '+r.filename+' '+t.value.slice(b2);$('#upload-status').innerHTML='<span class="ok">Image collée : <code>'+r.filename+'</code></span>';}
+      else $('#upload-status').innerHTML='<span class="err">'+(r.error||'Erreur')+'</span>';
+    }catch(e){ $('#upload-status').innerHTML='<span class="err">'+(e&&e.message==='timeout'
+        ?'Collage interrompu (connexion trop lente ou coupée). Réessayez.'
+        :'Collage impossible pour le moment. Réessayez.')+'</span>'; } }}
 });
 
 /* ---- Historique ---- */
