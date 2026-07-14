@@ -45,7 +45,7 @@ foreach ([
     dirname(__DIR__, 3) . '/atequa-web.com/private/ai_gateway.php',
     '/Users/manueldelgoffe/Documents/Claude Code/atequa-web.com/private/ai_gateway.php',
 ] as $cand) { if ($cand && is_file($cand)) { $GW = $cand; break; } }
-if ($GW) load_fns($GW, ['ai_apply_edits']);
+if ($GW) load_fns($GW, ['ai_apply_edits', 'ai_full_rewrite_sane']);
 
 /* --- micro-framework d'assertions --- */
 $PASS = 0; $FAIL = 0; $fails = [];
@@ -128,6 +128,26 @@ if (function_exists('ai_apply_edits')) {
     ok('no-op : pas d\'échec, 0 appliqué', !$fail && $ap===0);
 } else {
     echo "  (ai_gateway.php introuvable — tests passerelle sautés ; définir AI_GATEWAY_PHP pour les activer)\n";
+}
+
+echo "\n== Passerelle : garde-fou anti-troncature d'une réécriture complète (ai_full_rewrite_sane) ==\n";
+if (function_exists('ai_full_rewrite_sane')) {
+    $orig = '<!DOCTYPE html><html><head><title>T</title></head><body>'
+          . str_repeat('<section>contenu réel de la page, du texte, des blocs, des images </section>', 200)
+          . '<footer>Atelier Montmédy (55)</footer></body></html>';
+    // cas RÉEL couturieuse 14/07 : le modèle renvoie juste le bloc modifié entouré de « ... reste de la page ... »
+    $frag = '<!-- ... reste de la page ... --><div class="info-card"><p class="info-value">'
+          . '14 Rue du général Leclerc<br/>Appartement 6<br/>55600 Montmédy</p></div><!-- ... reste de la page ... -->';
+    ok('fragment abrégé (cas couturieuse) : REFUSÉ', ai_full_rewrite_sane($orig, $frag) === false);
+    ok('chaîne vide : REFUSÉE', ai_full_rewrite_sane($orig, '') === false);
+    ok('perte de >50% du volume : REFUSÉE', ai_full_rewrite_sane($orig, substr($orig, 0, (int)(strlen($orig)*0.4))) === false);
+    // une réécriture complète légitime (même page, footer corrigé) reste ACCEPTÉE
+    $good = str_replace('Atelier Montmédy (55)', '14 Rue du général Leclerc, Appartement 6, 55600 Montmédy', $orig);
+    ok('réécriture complète légitime : ACCEPTÉE', ai_full_rewrite_sane($orig, $good) === true);
+    // page sans </html> à l'origine (fragment JS/CSS) : la règle structurelle ne s'applique pas abusivement
+    ok('petit fichier complet sans balise html : ACCEPTÉ', ai_full_rewrite_sane(str_repeat('a',500), str_repeat('b',480)) === true);
+} else {
+    echo "  (ai_full_rewrite_sane introuvable — garde-fou non testé ici)\n";
 }
 
 echo "\n==================================================\n";
