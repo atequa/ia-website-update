@@ -80,11 +80,13 @@ function opt_providers(array $providers, string $selected): string {
   .hist .when{font-size:.78rem;color:var(--muted)}
   .uploads{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.7rem;align-items:center}
   .uploads .up-lbl{font-size:.8rem;color:var(--muted);width:100%;margin-bottom:.1rem}
-  .uploads .up{display:inline-flex;align-items:stretch;border:1px solid var(--line,#e2e8f0);border-radius:.5rem;overflow:hidden;background:#f8fafc}
-  .uploads .up-name{border:0;background:transparent;padding:.3rem .55rem;font:inherit;font-size:.82rem;color:#21386E;cursor:pointer;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .uploads .up{position:relative;display:inline-flex;align-items:stretch;border:1px solid var(--line,#e2e8f0);border-radius:.5rem;background:#f8fafc}
+  .uploads .up-name{border:0;background:transparent;border-radius:.5rem 0 0 .5rem;padding:.3rem .55rem;font:inherit;font-size:.82rem;color:#21386E;cursor:pointer;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .uploads .up-name:hover{background:#eef2ff;text-decoration:underline}
-  .uploads .up-del{border:0;border-left:1px solid var(--line,#e2e8f0);background:transparent;padding:0 .5rem;font-size:1rem;line-height:1;color:#b3261e;cursor:pointer}
+  .uploads .up-del{border:0;border-left:1px solid var(--line,#e2e8f0);background:transparent;border-radius:0 .5rem .5rem 0;padding:0 .5rem;font-size:1rem;line-height:1;color:#b3261e;cursor:pointer}
   .uploads .up-del:hover{background:#fdecea}
+  .uploads .up-prev{display:none;position:absolute;left:0;top:calc(100% + 6px);z-index:30;max-width:240px;max-height:240px;object-fit:contain;border:1px solid var(--line,#e2e8f0);border-radius:.4rem;background:#fff;padding:3px;box-shadow:0 8px 26px rgba(0,0,0,.2)}
+  .uploads .up:hover .up-prev{display:block}
   .thumb{position:relative;width:96px}
   .thumb img{width:96px;height:72px;object-fit:cover;border:1px solid var(--line);border-radius:.4rem;background:#fff}
   .thumb .x{position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;border:0;background:#b3261e;color:#fff;cursor:pointer;font-weight:700;line-height:1;font-size:14px}
@@ -413,8 +415,11 @@ async function loadUploads(){const box=$('#uploads');if(!box)return;
   try{const r=await api('list_uploads');const files=(r&&r.files)||[];
     if(!files.length){box.hidden=true;box.innerHTML='';return;}
     box.hidden=false;
+    const IMG_EXT=['jpg','jpeg','png','webp','gif'];
     box.innerHTML='<span class="up-lbl">Fichiers envoyés (cliquez le nom pour l\'insérer, × pour supprimer) :</span>'+
-      files.map(f=>'<span class="up"><button type="button" class="up-name" data-ref="'+escapeHtml(f)+'" title="Insérer dans la demande">'+escapeHtml(baseName(f))+'</button><button type="button" class="up-del" data-fn="'+escapeHtml(f)+'" title="Supprimer ce fichier">×</button></span>').join('');
+      files.map(f=>{const isImg=IMG_EXT.indexOf(baseName(f).split('.').pop().toLowerCase())>=0;
+        const prev=isImg?'<img class="up-prev" src="/'+escapeHtml(f)+'" alt="" loading="lazy">':'';
+        return '<span class="up"><button type="button" class="up-name" data-ref="'+escapeHtml(f)+'" title="Insérer dans la demande">'+escapeHtml(baseName(f))+'</button>'+prev+'<button type="button" class="up-del" data-fn="'+escapeHtml(f)+'" title="Supprimer ce fichier">×</button></span>';}).join('');
     box.querySelectorAll('.up-name').forEach(b=>b.onclick=()=>insertRef(b.dataset.ref));
     box.querySelectorAll('.up-del').forEach(b=>b.onclick=()=>deleteUpload(b.dataset.fn,b));
   }catch(e){box.hidden=true;}}
