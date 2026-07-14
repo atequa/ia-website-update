@@ -436,17 +436,38 @@ $$('#chips .chip').forEach(c=>c.onclick=()=>{const t=$('#request');const tpl=c.d
 $('#request').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();$('#btn-propose').click();}});
 /* choix Rapide/Soigné = fournisseur (libellé simplifié), synchronisé avec Réglages */
 if($('#mode-sel'))$('#mode-sel').onchange=async()=>{if($('#mode-sel').disabled)return;await api('set_provider',{provider:$('#mode-sel').value});refresh();};
-/* dictée vocale — API du navigateur, 100% local ; le micro reste masqué si non supporté */
+/* dictée vocale — API du navigateur, 100% local ; le micro reste masqué si non supporté.
+   L'API se coupe souvent d'elle-même après un silence : on la relance tant que l'utilisateur veut
+   dicter (continu fiable). Si elle se recoupe AUSSITÔT plusieurs fois (micro bloqué / non dispo), on
+   arrête et on affiche un message clair au lieu de boucler en silence. */
 (function(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;const mic=$('#btn-mic');if(!SR||!mic)return;
-  mic.hidden=false;let rec=null,on=false,base='';
-  mic.onclick=()=>{if(on){rec&&rec.stop();return;}
+  mic.hidden=false;let rec=null,wantOn=false,base='',startedAt=0,quickEnds=0;
+  function micMsg(msg,err){var el=$('#upload-status');if(el)el.innerHTML=msg?'<span class="'+(err?'err':'ok')+'">'+msg+'</span>':'';}
+  function stopUI(){mic.classList.remove('rec');mic.title='Dicter à la voix';}
+  mic.onclick=()=>{
+    if(wantOn){wantOn=false;try{rec&&rec.stop();}catch(e){}stopUI();micMsg('');return;}
+    wantOn=true;quickEnds=0;
     rec=new SR();rec.lang='fr-FR';rec.interimResults=true;rec.continuous=true;
     base=$('#request').value;if(base&&!/\s$/.test(base))base+=' ';
-    rec.onstart=()=>{on=true;mic.classList.add('rec');mic.title='Arrêter la dictée';};
-    rec.onend=()=>{on=false;mic.classList.remove('rec');mic.title='Dicter à la voix';};
-    rec.onerror=()=>{};
+    rec.onstart=()=>{startedAt=Date.now();mic.classList.add('rec');mic.title='Arrêter la dictée';micMsg('🎤 Dictée en cours — parlez, puis recliquez pour arrêter.');};
+    rec.onerror=(e)=>{var er=e&&e.error;
+      if(er==='not-allowed'||er==='service-not-allowed'){wantOn=false;micMsg('Micro bloqué. Autorisez le microphone pour ce site (icône à gauche de l\'adresse), puis réessayez.',true);}
+      else if(er==='audio-capture'){wantOn=false;micMsg('Aucun micro détecté sur cet appareil.',true);}
+      else if(er==='network'){wantOn=false;micMsg('Dictée indisponible pour le moment (réseau).',true);}
+      /* 'no-speech' / 'aborted' : bénins → onend gère la relance */
+    };
+    rec.onend=()=>{
+      if(wantOn){
+        if(Date.now()-startedAt<800){ if(++quickEnds>=3){wantOn=false;stopUI();micMsg('La dictée se coupe aussitôt. Vérifiez l\'autorisation du micro (icône dans la barre d\'adresse), ou utilisez Chrome/Edge sur ordinateur.',true);return;} }
+        else quickEnds=0;
+        base=$('#request').value;if(base&&!/\s$/.test(base))base+=' ';
+        try{rec.start();return;}catch(e){}
+      }
+      stopUI();
+    };
     rec.onresult=(e)=>{let txt='';for(let i=0;i<e.results.length;i++)txt+=e.results[i][0].transcript;$('#request').value=base+txt;};
-    try{rec.start();}catch(_){}};
+    try{rec.start();}catch(e){wantOn=false;stopUI();micMsg('Impossible de démarrer la dictée. Réessayez.',true);}
+  };
 })();
 $('#request').addEventListener('paste',async(e)=>{
   const items=(e.clipboardData&&e.clipboardData.items)?e.clipboardData.items:[];
