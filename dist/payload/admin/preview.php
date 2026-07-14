@@ -38,19 +38,30 @@ header('Cache-Control: no-store');
 // pour que le rendu visuel reste fidèle.
 header("Content-Security-Policy: default-src 'self' data:; script-src 'none'; "
      . "style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; "
-     . "object-src 'none'; base-uri 'none'; form-action 'none'");
+     . "object-src 'none'; base-uri 'self'; form-action 'none'");
 
 if ($ext === 'html') {
+    // L'aperçu est servi depuis /admin/preview.php. Les chemins RELATIFS de la page (« assets/styles.css »,
+    // images, polices) se résoudraient donc depuis /admin/ → 404 → aperçu SANS style. On injecte
+    // <base href="/"> pour les résoudre depuis la RACINE du site, exactement comme la page en ligne.
+    $previewDir = rtrim(str_replace('\\', '/', dirname((string)parse_url((string)($_SERVER['REQUEST_URI'] ?? '/admin/preview.php'), PHP_URL_PATH))), '/');
+    if ($previewDir === '') $previewDir = '/admin';
     foreach ($map as $f => $_) {
         if ($f === $path) continue;
         $fe = strtolower(pathinfo($f, PATHINFO_EXTENSION));
         if (!in_array($fe, ['css','js'], true)) continue;
+        // URL ABSOLUE vers l'aperçu (reste correcte malgré le <base href="/"> injecté ci-dessous).
         $content = preg_replace(
             '~/'.preg_quote($f, '~').'(\?[^"\'\s]*)?~',
-            'preview.php?token='.$token.'&path='.rawurlencode($f),
+            $previewDir.'/preview.php?token='.$token.'&path='.rawurlencode($f),
             $content
         );
     }
+    $base = '<base href="/">';
+    if (preg_match('~<head[^>]*>~i', (string)$content))
+        $content = preg_replace('~<head[^>]*>~i', '$0'.$base, (string)$content, 1);
+    else
+        $content = $base.(string)$content;
     $banner = '<div style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#21386E;color:#fff;font:13px/1.4 system-ui;padding:6px 12px;text-align:center">👁 Aperçu — non publié</div><div style="height:30px"></div>';
     $content = preg_replace('~<body[^>]*>~i', '$0'.$banner, (string)$content, 1);
 }
