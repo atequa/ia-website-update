@@ -24,6 +24,7 @@ const BO_BACKUPS     = '__HOME__/private/bo_backups';
 const BO_SPENDLOG    = '__HOME__/private/bo_spend.json';
 const BO_PROPOSALS   = '__HOME__/private/bo_proposals';
 const BO_TOKENS_FILE = '__HOME__/private/bo_tokens.json';
+const BO_UPLOADS_FILE = '__HOME__/private/bo_uploads.json';   // suivi des images/fichiers téléversés
 const BO_MAGIC_FILE  = '__HOME__/private/bo_magic.json';
 const BO_PROVIDERS_FILE = '__HOME__/private/bo_providers.json';
 const BO_VERSION_FILE   = '__HOME__/private/bo_version.json';

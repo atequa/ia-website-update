@@ -7,6 +7,11 @@ require BO_PRIVATE_DIR . '/bo_auth.php';
 require BO_PRIVATE_DIR . '/bo_llm.php';
 require BO_PRIVATE_DIR . '/bo_control.php';
 
+// Repli : les configs de site générées avant l'ajout de l'upload d'images ne définissent pas
+// BO_UPLOADS_FILE. Sans ce garde, y référer est une ERREUR FATALE en PHP 8 (constante indéfinie) →
+// 500 sur upload/list_uploads/delete_image (l'upload d'image ne marchait sur AUCUN de ces sites).
+if (!defined('BO_UPLOADS_FILE')) define('BO_UPLOADS_FILE', BO_PRIVATE . '/bo_uploads.json');
+
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');

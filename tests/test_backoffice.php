@@ -150,6 +150,18 @@ if (function_exists('ai_full_rewrite_sane')) {
     echo "  (ai_full_rewrite_sane introuvable — garde-fou non testé ici)\n";
 }
 
+echo "\n== Intégrité : toute constante BO_* utilisée dans api.php a un repli ou une définition ==\n";
+$apiSrc = @file_get_contents(__DIR__.'/../dist/payload/admin/api.php');
+if ($apiSrc !== false) {
+    // BO_UPLOADS_FILE était utilisée (upload/list_uploads/delete_image) SANS être définie → erreur
+    // fatale en PHP 8 sur les sites dont le bo_config est antérieur (incident couturieuse 14/07).
+    $used = strpos($apiSrc, 'BO_UPLOADS_FILE') !== false;
+    $guarded = preg_match('/if\s*\(\s*!\s*defined\(\s*[\'"]BO_UPLOADS_FILE[\'"]\s*\)\s*\)\s*define\(/', $apiSrc) === 1;
+    ok('BO_UPLOADS_FILE utilisée → repli define() présent (sinon 500 sur PHP 8)', !$used || $guarded);
+} else {
+    echo "  (api.php introuvable — check d'intégrité sauté)\n";
+}
+
 echo "\n==================================================\n";
 echo "Résultat : $PASS réussis, $FAIL échoués\n";
 if ($FAIL) { echo "ÉCHECS :\n  - ".implode("\n  - ",$fails)."\n"; exit(1); }
