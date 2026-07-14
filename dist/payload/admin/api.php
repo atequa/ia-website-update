@@ -94,6 +94,7 @@ const BO_RULES =
 "- Ne modifie QUE ce que la demande implique. Ne refais pas la mise en page ; ne touche pas au SEO (title, meta, canonical, JSON-LD) sauf demande explicite.\n" .
 "- Conserve structure HTML, classes CSS, header/footer/menu identiques sur TOUTES les pages (si tu changes le header, applique-le partout).\n" .
 "- Le formulaire de contact poste vers /contact.php — n'y touche pas.\n" .
+"- Certaines zones sont délimitées par des commentaires <!--TPL:NOM_START--> et <!--TPL:NOM_END--> : leur contenu est géré automatiquement par le site (avis clients, etc.). Ne modifie JAMAIS ce qui se trouve entre ces marqueurs et conserve les deux commentaires intacts.\n" .
 "- Pour chaque fichier modifié, renvoie son CONTENU COMPLET réécrit (jamais un extrait/diff). Ne renvoie QUE les fichiers réellement modifiés.\n" .
 "- Si la demande est impossible/dangereuse, explique-le dans 'summary' et renvoie 'changes' vide.";
 
@@ -324,6 +325,55 @@ function bo_global_targets(string $tag, string $oldBlock, string $newBlock, ?arr
     return ['ok' => $ok, 'skip' => $skip];
 }
 
+/* ---- Régions TEMPLATE gérées côté SERVEUR (contenu dynamique dans une page statique) ----
+ * Convention : <!--TPL:NOM_START--> … <!--TPL:NOM_END-->. Le contenu ENTRE ces marqueurs est
+ * régénéré par le serveur (ex. avis clients via render-testimonials.php) et ne doit JAMAIS être
+ * réécrit par l'éditeur (IA ou chercher/remplacer). Toute paire de marqueurs TPL présente dans la
+ * page est protégée automatiquement — aucun réglage par site. Trois temps :
+ *   1) bo_tpl_mask()    : avant l'envoi au modèle, on remplace le contenu de la zone par un
+ *                         placeholder → le modèle ne voit pas / ne réécrit pas les données dynamiques.
+ *   2) bo_tpl_restore() : avant toute écriture, on réinjecte le contenu réel depuis le fichier LIVE
+ *                         (un avis a pu être publié entre la proposition et la validation).
+ *   3) bo_tpl_intact()  : refuse d'écrire une page qui aurait perdu une paire de marqueurs (sinon le
+ *                         rendu serveur des avis ne retrouverait plus sa zone). */
+function bo_tpl_regions(string $html): array {
+    $out = [];
+    if (!preg_match_all('~<!--TPL:([A-Z0-9_]+)_START-->~', $html, $ms, PREG_OFFSET_CAPTURE)) return $out;
+    foreach ($ms[1] as $i => $nm) {
+        $name = $nm[0];
+        $startMark = $ms[0][$i][0];
+        $endMark = '<!--TPL:'.$name.'_END-->';
+        $innerStart = $ms[0][$i][1] + strlen($startMark);
+        $ePos = strpos($html, $endMark, $innerStart);
+        if ($ePos === false) continue;                 // marqueur de fin manquant → paire ignorée
+        $out[$name] = ['start'=>$startMark, 'end'=>$endMark, 'inner'=>substr($html, $innerStart, $ePos - $innerStart)];
+    }
+    return $out;
+}
+function bo_tpl_mask(string $html): string {
+    foreach (bo_tpl_regions($html) as $r) {
+        $ph = "\n<!-- Contenu géré automatiquement par le site (ne pas modifier ; conserver ces deux commentaires TPL tels quels). -->\n";
+        $html = str_replace($r['start'].$r['inner'].$r['end'], $r['start'].$ph.$r['end'], $html);
+    }
+    return $html;
+}
+function bo_tpl_restore(string $newHtml, string $liveHtml): string {
+    foreach (bo_tpl_regions($liveHtml) as $r) {
+        $sPos = strpos($newHtml, $r['start']); if ($sPos === false) continue;
+        $innerStart = $sPos + strlen($r['start']);
+        $ePos = strpos($newHtml, $r['end'], $innerStart); if ($ePos === false) continue;
+        $newHtml = substr($newHtml, 0, $innerStart) . $r['inner'] . substr($newHtml, $ePos);
+    }
+    return $newHtml;
+}
+function bo_tpl_intact(string $newHtml, string $liveHtml): bool {
+    foreach (bo_tpl_regions($liveHtml) as $r) {
+        $sPos = strpos($newHtml, $r['start']); if ($sPos === false) return false;
+        if (strpos($newHtml, $r['end'], $sPos + strlen($r['start'])) === false) return false;
+    }
+    return true;
+}
+
 if ($action === 'propose') {
     $req = trim((string)($_POST['request'] ?? ''));
     if ($req==='') fail(422, "Demande vide.");
@@ -401,11 +451,11 @@ if ($action === 'propose') {
         $page = '';
     }
     if ($gw && !isset($files[$page])) fail(422, "Page introuvable.");
-    $corpus=''; foreach ($files as $n=>$c) $corpus .= "\n===== FICHIER: $n =====\n".$c."\n";
+    $corpus=''; foreach ($files as $n=>$c) $corpus .= "\n===== FICHIER: $n =====\n".bo_tpl_mask($c)."\n";
 
     usage_record(0, 0, 1);                 // compte la requête
     @set_time_limit(200);                  // certains modèles (ex. GLM-4.6) répondent en ~1-2 min
-    $r = $gw ? bo_edit_gateway($page, (string)$files[$page], $req)
+    $r = $gw ? bo_edit_gateway($page, bo_tpl_mask((string)$files[$page]), $req)
              : bo_llm_edit($p, $key, $rules, $corpus, $req);
     if (!$r['ok']) fail(502, $r['error']);
     usage_record((int)($r['in']??0), (int)($r['out']??0), 0);   // ajoute les tokens consommés
@@ -419,6 +469,14 @@ if ($action === 'propose') {
         if (editable_path($name)===null) continue;
         $old = $files[$name] ?? ''; $new=(string)($c['new_content'] ?? '');
         if ($new===''||$new===$old) continue;
+        // Régions TPL gérées par le serveur (ex. avis clients) : on restaure leur contenu depuis le
+        // fichier LIVE. Si le modèle a cassé une paire de marqueurs, on écarte ce fichier (jamais de
+        // page proposée sans ses marqueurs → sinon le rendu serveur des avis perdrait sa zone).
+        if (substr($name,-5)==='.html') {
+            if (!bo_tpl_intact($new, $old)) continue;
+            $new = bo_tpl_restore($new, $old);
+            if ($new === $old) continue;
+        }
         $changes[] = ['path'=>$name,'new_content'=>$new,'old_len'=>strlen($old),'new_len'=>strlen($new)];
     }
     foreach (glob(BO_PROPOSALS.'/*.json') as $old) { if (is_file($old) && time()-filemtime($old) > 86400) @unlink($old); } // purge des brouillons > 24 h
@@ -461,7 +519,19 @@ if ($action === 'apply') {
     $changes = $prop['changes'] ?? [];
     if (!$changes) fail(422, "Rien à appliquer.");
     $id = bo_newid(); bo_snapshot_all($id);                 // snapshot complet AVANT la modif
-    $written=[]; foreach ($changes as $c){ $p=editable_path($c['path']); if ($p){ file_put_contents($p,$c['new_content'],LOCK_EX); $written[]=$c['path']; } }
+    $written=[]; foreach ($changes as $c){
+        $p=editable_path($c['path']); if (!$p) continue;
+        $content = (string)$c['new_content'];
+        // Garde-fou FINAL avant écriture : restaurer les régions TPL depuis le fichier LIVE du moment
+        // (un avis a pu être publié entre la proposition et la validation). On n'écrit jamais une page
+        // qui aurait perdu ses marqueurs TPL.
+        if (substr($c['path'],-5)==='.html' && is_file($p)) {
+            $live = (string)file_get_contents($p);
+            if (!bo_tpl_intact($content, $live)) continue;
+            $content = bo_tpl_restore($content, $live);
+        }
+        file_put_contents($p,$content,LOCK_EX); $written[]=$c['path'];
+    }
     // Cache-busting : si un CSS/JS a changé, on incrémente ?v= dans tous les HTML (force le rechargement navigateur).
     if (preg_grep('/\.(css|js)$/', $written)) {
         $v = date('YmdHis');
@@ -511,6 +581,8 @@ if ($action === 'replace') {
         $p = editable_path($h['path']); if (!$p) continue;
         $content = $files[$h['path']];
         $replaced = str_replace($find, $repl, $content);
+        // Ne jamais laisser un chercher/remplacer réécrire une région TPL gérée par le serveur.
+        if (substr($h['path'],-5)==='.html' && bo_tpl_intact($replaced, $content)) $replaced = bo_tpl_restore($replaced, $content);
         if ($replaced !== $content) { file_put_contents($p, $replaced, LOCK_EX); $written[] = $h['path']; }
     }
     // Cache-busting si un CSS/JS a changé (même logique que 'apply').
