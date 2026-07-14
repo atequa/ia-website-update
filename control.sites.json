@@ -1,29 +1,33 @@
 {
-  "version": "1",
-  "sites": {
-    "educ-care": {
-      "enabled": true,
-      "mode": "self"
-    },
-    "pandarestaurant": {
-      "enabled": true,
-      "mode": "self"
-    },
-    "metnos": {
-      "enabled": true,
-      "mode": "managed"
-    },
-    "samazing": {
-      "enabled": true,
-      "mode": "managed"
-    },
-    "centre-elleetlui": {
-      "enabled": true,
-      "mode": "managed"
-    },
-    "couturieuse": {
-      "enabled": true,
-      "mode": "managed"
+    "version": "1",
+    "sites": {
+        "educ-care": {
+            "enabled": true,
+            "mode": "self"
+        },
+        "pandarestaurant": {
+            "enabled": true,
+            "mode": "self"
+        },
+        "metnos": {
+            "enabled": true,
+            "mode": "managed"
+        },
+        "samazing": {
+            "enabled": true,
+            "mode": "managed"
+        },
+        "centre-elleetlui": {
+            "enabled": true,
+            "mode": "managed"
+        },
+        "couturieuse": {
+            "enabled": true,
+            "mode": "managed"
+        },
+        "borisalataille": {
+            "enabled": true,
+            "mode": "managed"
+        }
     }
-  }
 }
