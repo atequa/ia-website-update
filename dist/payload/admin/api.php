@@ -70,9 +70,9 @@ function bo_snapshot_all(string $id): void {
     foreach (bo_html_pages() as $n) if (!in_array($n, $names, true)) $names[] = $n; // inclut les pages ajoutées
     foreach ($names as $n) { $p = BO_DOCROOT.'/'.$n; if (is_file($p)) copy($p, $d.'/'.basename($n)); }
 }
-function bo_history_add(string $id, string $summary, array $changed): void {
+function bo_history_add(string $id, string $summary, array $changed, string $reqId = ''): void {
     $h = bo_json_read(BO_HISTORY_FILE);
-    array_unshift($h, ['id'=>$id, 'date'=>date('Y-m-d H:i'), 'summary'=>$summary, 'changed'=>$changed]);
+    array_unshift($h, ['id'=>$id, 'date'=>date('Y-m-d H:i'), 'summary'=>$summary, 'changed'=>$changed, 'req_id'=>$reqId]);
     while (count($h) > BO_HISTORY_KEEP) {
         $old = array_pop($h); $d = BO_HISTORY.'/'.($old['id'] ?? '');
         if ($old && is_dir($d)) { foreach (glob($d.'/*') as $f) @unlink($f); @rmdir($d); }
@@ -81,6 +81,18 @@ function bo_history_add(string $id, string $summary, array $changed): void {
     // IndexNow différé : signale au cron perf (perf_gen.php §8) qu'une modif a eu lieu → il re-notifiera
     // les moteurs au prochain passage (fichier vide = tout le sitemap). No-op si le site n'a pas d'indexnow_key.
     if ($changed) @file_put_contents(BO_PRIVATE.'/indexnow_pending', '', LOCK_EX);
+}
+/* Purge des brouillons de proposition > 24 h. Une proposition passée par la passerelle et JAMAIS
+ * appliquée (le fichier serait sinon supprimé à l'apply/dismiss) = abandonnée → on remonte l'issue
+ * 'abandoned' à la passerelle (boucle d'amélioration) avant de supprimer. Fire-and-forget. */
+function bo_purge_stale_proposals(): void {
+    foreach (glob(BO_PROPOSALS.'/*.json') as $o) {
+        if (!is_file($o) || time()-filemtime($o) <= 86400) continue;
+        $prop = json_decode((string)@file_get_contents($o), true);
+        $rid = is_array($prop) ? (string)($prop['req_id'] ?? '') : '';
+        if ($rid !== '' && !empty($prop['changes']) && function_exists('bo_gateway_outcome')) bo_gateway_outcome($rid, 'abandoned');
+        @unlink($o);
+    }
 }
 function bo_restore_snapshot(string $id): array {
     $d = BO_HISTORY.'/'.$id; $restored = [];
@@ -413,7 +425,7 @@ if ($action === 'propose') {
         $newBlock = '';
         foreach (($parsed['changes'] ?? []) as $c) { $nc = (string)($c['new_content'] ?? ''); if ($nc !== '') { $newBlock = $nc; break; } }
 
-        foreach (glob(BO_PROPOSALS.'/*.json') as $o) { if (is_file($o) && time()-filemtime($o) > 86400) @unlink($o); }
+        bo_purge_stale_proposals();
         $token = bin2hex(random_bytes(8));
         if ($newBlock === '' || $newBlock === $oldBlock) {   // rien à changer
             file_put_contents(BO_PROPOSALS.'/'.$token.'.json', json_encode(['changes'=>[],'summary'=>$parsed['summary']], JSON_UNESCAPED_UNICODE), LOCK_EX);
@@ -427,7 +439,7 @@ if ($action === 'propose') {
         // Aperçu : la page de référence avec le nouveau bloc.
         $previewHtml = substr($refHtml, 0, $reg[0]) . $newBlock . substr($refHtml, $reg[0] + $reg[1]);
         file_put_contents(BO_PROPOSALS.'/'.$token.'.json', json_encode([
-            'global'=>$gtag, 'summary'=>$parsed['summary'],
+            'global'=>$gtag, 'summary'=>$parsed['summary'], 'req_id'=>(string)($r['req_id'] ?? ''),
             'old_block'=>$oldBlock, 'new_block'=>$newBlock, 'diff'=>$diff,
             'changes'=>[['path'=>$ref, 'new_content'=>$previewHtml]],   // pour l'aperçu uniquement
         ], JSON_UNESCAPED_UNICODE), LOCK_EX);
@@ -479,9 +491,9 @@ if ($action === 'propose') {
         }
         $changes[] = ['path'=>$name,'new_content'=>$new,'old_len'=>strlen($old),'new_len'=>strlen($new)];
     }
-    foreach (glob(BO_PROPOSALS.'/*.json') as $old) { if (is_file($old) && time()-filemtime($old) > 86400) @unlink($old); } // purge des brouillons > 24 h
+    bo_purge_stale_proposals();   // purge des brouillons > 24 h (+ ping 'abandoned' des propositions non appliquées)
     $token = bin2hex(random_bytes(8));
-    file_put_contents(BO_PROPOSALS.'/'.$token.'.json', json_encode(['changes'=>$changes,'summary'=>$parsed['summary']], JSON_UNESCAPED_UNICODE), LOCK_EX);
+    file_put_contents(BO_PROPOSALS.'/'.$token.'.json', json_encode(['changes'=>$changes,'summary'=>$parsed['summary'],'req_id'=>(string)($r['req_id'] ?? '')], JSON_UNESCAPED_UNICODE), LOCK_EX);
     out(['ok'=>true,'token'=>$token,'summary'=>$parsed['summary'],
          'changes'=>array_map(fn($c)=>['path'=>$c['path'],'old_len'=>$c['old_len'],'new_len'=>$c['new_len']], $changes),
          'tokens'=>['in'=>$r['in']??0,'out'=>$r['out']??0],
@@ -511,7 +523,9 @@ if ($action === 'apply') {
             }
         }
         if (!$written) { @unlink($pf); fail(422, "Aucune page n'a pu être mise à jour (section absente ou différente partout)."); }
-        bo_history_add($id, $summary, $written);
+        $rid = (string)($prop['req_id'] ?? '');
+        bo_history_add($id, $summary, $written, $rid);
+        bo_gateway_outcome($rid, 'applied');   // issue = appliquée (boucle d'amélioration)
         @unlink($pf);
         out(['ok'=>true, 'written'=>$written, 'global'=>true]);
     }
@@ -543,7 +557,9 @@ if ($action === 'apply') {
             if ($new !== null && $new !== $html) file_put_contents($hp, $new, LOCK_EX);
         }
     }
-    bo_history_add($id, $summary, $written);
+    $rid = (string)($prop['req_id'] ?? '');
+    bo_history_add($id, $summary, $written, $rid);
+    bo_gateway_outcome($rid, 'applied');   // issue = appliquée (boucle d'amélioration)
     @unlink($pf);
     out(['ok'=>true,'written'=>$written]);
 }
@@ -619,8 +635,10 @@ if ($action === 'undo') {
     $h = bo_json_read(BO_HISTORY_FILE);
     if (!$h || !is_dir(BO_HISTORY.'/'.$h[0]['id'])) fail(404, "Aucune modification à annuler.");
     $cur=bo_newid(); bo_snapshot_all($cur);
+    $undoneReqId = (string)($h[0]['req_id'] ?? '');   // avant d'empiler la nouvelle entrée
     $restored = bo_restore_snapshot($h[0]['id']);
     bo_history_add($cur, "↩︎ Annulation de « ".mb_substr((string)$h[0]['summary'],0,90)." »", $restored);
+    bo_gateway_outcome($undoneReqId, 'undone');   // issue = annulée (signal fort : la modif ne convenait pas)
     out(['ok'=>true,'restored'=>$restored]);
 }
 

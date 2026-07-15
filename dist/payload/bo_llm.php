@@ -69,7 +69,16 @@ function bo_edit_gateway(string $page, string $content, string $req): array {
     return ['ok' => true,
         'parsed' => ['summary' => (string)($d['summary'] ?? ''), 'changes' => (array)($d['changes'] ?? [])],
         'in' => (int)($d['tokens']['in'] ?? 0), 'out' => (int)($d['tokens']['out'] ?? 0),
-        'label' => (string)($d['model_label'] ?? 'Assistant')];
+        'label' => (string)($d['model_label'] ?? 'Assistant'),
+        'req_id' => (string)($d['req_id'] ?? '')];   // relie la proposition à son issue (bo_gateway_outcome)
+}
+/** Remonte l'ISSUE d'une proposition (applied|abandoned|undone) à la passerelle — signal de la boucle
+ * d'amélioration. Fire-and-forget : un échec n'impacte JAMAIS l'édition du client (timeout court, silencieux). */
+function bo_gateway_outcome(string $reqId, string $outcome): void {
+    if (!bo_gateway_enabled()) return;
+    $reqId = preg_replace('/[^a-f0-9]/', '', strtolower($reqId));
+    if ($reqId === '' || !in_array($outcome, ['applied', 'abandoned', 'undone'], true)) return;
+    @bo_gateway_http('POST', '/outcome', ['req_id' => $reqId, 'outcome' => $outcome], 6);
 }
 /** Jauge budget mensuelle (nourrit l'UI). null si passerelle injoignable — l'UI reste utilisable. */
 function bo_gateway_status(): ?array {

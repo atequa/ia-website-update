@@ -45,7 +45,7 @@ foreach ([
     dirname(__DIR__, 3) . '/atequa-web.com/private/ai_gateway.php',
     '/Users/manueldelgoffe/Documents/Claude Code/atequa-web.com/private/ai_gateway.php',
 ] as $cand) { if ($cand && is_file($cand)) { $GW = $cand; break; } }
-if ($GW) load_fns($GW, ['ai_apply_edits', 'ai_full_rewrite_sane']);
+if ($GW) load_fns($GW, ['ai_ws_flexible_pattern', 'ai_apply_edits', 'ai_full_rewrite_sane']);
 
 /* --- micro-framework d'assertions --- */
 $PASS = 0; $FAIL = 0; $fails = [];
