@@ -103,7 +103,46 @@ function bo_send_magic_link(string $email, string $url): bool {
         'MIME-Version: 1.0', 'Content-Type: text/plain; charset=UTF-8',
         'Content-Transfer-Encoding: 8bit',
     ];
+    // SMTP authentifié si le site le configure (BO_SMTP_HOST/PASS dans bo_config.php).
+    // Motif : les mails issus de PHP mail() (chemin « script web ») sont parfois rejetés en
+    // silence par Gmail/Orange, surtout sur un domaine récent, alors que la soumission SMTP
+    // authentifiée passe (vécu autowashsatisfaction.fr, 2026-07-25).
+    if (defined('BO_SMTP_HOST') && defined('BO_SMTP_PASS') && BO_SMTP_PASS !== '') {
+        $user = defined('BO_SMTP_USER') ? BO_SMTP_USER : BO_MAIL_FROM;
+        if (bo_smtp_send(BO_SMTP_HOST, $user, BO_SMTP_PASS, BO_MAIL_FROM, $email, $subject, $body, $headers)) return true;
+        // repli mail() si le SMTP échoue
+    }
     return @mail($email, $subject, $body, implode("\r\n", $headers), '-f' . BO_MAIL_FROM);
+}
+function bo_smtp_send(string $host, string $user, string $pass, string $from, string $to, string $subject, string $body, array $headers): bool {
+    $fp = @stream_socket_client('ssl://' . $host . ':465', $errno, $errstr, 10);
+    if (!$fp) return false;
+    stream_set_timeout($fp, 10);
+    $read = function () use ($fp): string {
+        $out = '';
+        while (($line = fgets($fp, 512)) !== false) { $out .= $line; if (strlen($line) < 4 || $line[3] !== '-') break; }
+        return $out;
+    };
+    $say = function (string $cmd, string $expect) use ($fp, $read): bool {
+        fwrite($fp, $cmd . "\r\n");
+        return strpos($read(), $expect) === 0;
+    };
+    $ok = strpos($read(), '220') === 0
+        && $say('EHLO localhost', '250')
+        && $say('AUTH LOGIN', '334')
+        && $say(base64_encode($user), '334')
+        && $say(base64_encode($pass), '235')
+        && $say('MAIL FROM:<' . $from . '>', '250')
+        && $say('RCPT TO:<' . $to . '>', '250')
+        && $say('DATA', '354');
+    if ($ok) {
+        $data = implode("\r\n", $headers) . "\r\nTo: " . $to . "\r\nSubject: " . $subject . "\r\nDate: " . date('r') . "\r\n\r\n"
+              . preg_replace('/^\./m', '..', $body) . "\r\n.";
+        $ok = $say($data, '250');
+    }
+    @fwrite($fp, "QUIT\r\n");
+    @fclose($fp);
+    return $ok;
 }
 
 /* ---- Anti-abus simple (throttle par clé) ---- */
