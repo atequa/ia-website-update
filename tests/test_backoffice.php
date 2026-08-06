@@ -45,7 +45,7 @@ foreach ([
     dirname(__DIR__, 3) . '/atequa-web.com/private/ai_gateway.php',
     '/Users/manueldelgoffe/Documents/Claude Code/atequa-web.com/private/ai_gateway.php',
 ] as $cand) { if ($cand && is_file($cand)) { $GW = $cand; break; } }
-if ($GW) load_fns($GW, ['ai_ws_flexible_pattern', 'ai_apply_edits', 'ai_full_rewrite_sane']);
+if ($GW) load_fns($GW, ['ai_no_emdash', 'ai_ws_flexible_pattern', 'ai_apply_edits', 'ai_full_rewrite_sane']);
 
 /* --- micro-framework d'assertions --- */
 $PASS = 0; $FAIL = 0; $fails = [];
@@ -126,6 +126,10 @@ if (function_exists('ai_apply_edits')) {
     // no-op (find == replace)
     [$nn,$ap,$fail]=ai_apply_edits('<p>x</p>',[['find'=>'x','replace'=>'x']]);
     ok('no-op : pas d\'échec, 0 appliqué', !$fail && $ap===0);
+    // GARDE-FOU TIRETS : un 'replace' contenant un cadratin/demi-cadratin est nettoyé (règle Manu : jamais de « — »)
+    [$nn,$ap,$fail]=ai_apply_edits('<p>ancien</p>',[['find'=>'ancien','replace'=>"lundi — vendredi 9h – 18h"]]);
+    ok('tirets : cadratin/demi retirés du contenu appliqué', !$fail && strpos($nn,"\u{2014}")===false && strpos($nn,"\u{2013}")===false && strpos($nn,'lundi - vendredi')!==false);
+    if (function_exists('ai_no_emdash')) ok('ai_no_emdash : — et – → -', ai_no_emdash("a — b – c")==='a - b - c');
 } else {
     echo "  (ai_gateway.php introuvable — tests passerelle sautés ; définir AI_GATEWAY_PHP pour les activer)\n";
 }

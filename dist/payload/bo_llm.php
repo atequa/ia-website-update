@@ -70,7 +70,9 @@ function bo_edit_gateway(string $page, string $content, string $req): array {
         'parsed' => ['summary' => (string)($d['summary'] ?? ''), 'changes' => (array)($d['changes'] ?? [])],
         'in' => (int)($d['tokens']['in'] ?? 0), 'out' => (int)($d['tokens']['out'] ?? 0),
         'label' => (string)($d['model_label'] ?? 'Assistant'),
-        'req_id' => (string)($d['req_id'] ?? '')];   // relie la proposition à son issue (bo_gateway_outcome)
+        'req_id' => (string)($d['req_id'] ?? ''),   // relie la proposition à son issue (bo_gateway_outcome)
+        'needs_clarification' => !empty($d['needs_clarification']),   // orchestration : la passerelle demande une précision
+        'question' => (string)($d['question'] ?? '')];
 }
 /** Remonte l'ISSUE d'une proposition (applied|abandoned|undone) à la passerelle — signal de la boucle
  * d'amélioration. Fire-and-forget : un échec n'impacte JAMAIS l'édition du client (timeout court, silencieux). */

@@ -420,6 +420,9 @@ if ($action === 'propose') {
         $r = bo_edit_gateway($page === '__menu__' ? 'menu' : 'pied de page', $oldBlock, $req);
         if (!$r['ok']) fail(502, $r['error']);
         usage_record((int)($r['in']??0), (int)($r['out']??0), 0);
+        if (!empty($r['needs_clarification']))
+            out(['ok'=>true, 'needs_clarification'=>true, 'question'=>(string)($r['question'] ?? ''),
+                 'tokens'=>['in'=>$r['in']??0,'out'=>$r['out']??0], 'provider'=>(string)($r['label'] ?? 'Assistant')]);
         $parsed = $r['parsed'];
         if (!is_array($parsed) || !isset($parsed['summary'])) fail(502, "Réponse illisible. Réessayez.");
         $newBlock = '';
@@ -471,6 +474,10 @@ if ($action === 'propose') {
              : bo_llm_edit($p, $key, $rules, $corpus, $req);
     if (!$r['ok']) fail(502, $r['error']);
     usage_record((int)($r['in']??0), (int)($r['out']??0), 0);   // ajoute les tokens consommés
+    // Orchestration : la passerelle demande une précision avant d'agir → on renvoie la question au client.
+    if (!empty($r['needs_clarification']))
+        out(['ok'=>true, 'needs_clarification'=>true, 'question'=>(string)($r['question'] ?? ''),
+             'tokens'=>['in'=>$r['in']??0,'out'=>$r['out']??0], 'provider'=>(string)($r['label'] ?? 'Assistant')]);
     $parsed = $r['parsed'];
     if (!is_array($parsed) || !isset($parsed['summary'])) fail(502, "Réponse du fournisseur illisible. Réessayez ou changez de fournisseur.");
 

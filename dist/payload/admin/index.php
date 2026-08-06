@@ -327,6 +327,12 @@ $('#btn-propose').onclick=async()=>{const req=$('#request').value.trim();if(!req
   const t0=Date.now();const tick=()=>{const s=Math.round((Date.now()-t0)/1000);if($('#propose-status'))$('#propose-status').innerHTML='<span class="spinner"></span> L\'assistant travaille… '+s+' s'+(s>=20?' <span class="muted">(certains modèles prennent 1 à 2 min)</span>':'');};tick();const iv=setInterval(tick,1000);
   try{const r=await api('propose',{request:req,page});clearInterval(iv);
     if(!r.ok){$('#propose-status').innerHTML='<span class="err">'+(r.error==='needs_key'?'Aucune clé pour le fournisseur (onglet Réglages).':(r.error||'Erreur'))+'</span>';}
+    else if(r.needs_clarification){
+      $('#proposal').hidden=true;$('#btn-apply').style.display='none';
+      $('#propose-status').innerHTML='<div style="border:1px solid var(--border,#e0ddd4);border-radius:.6rem;padding:.75rem;margin-top:.5rem;background:var(--bg,#fff)"><p style="margin:0 0 .4rem"><b>Une précision avant de continuer :</b></p><p style="margin:0 0 .5rem">'+escapeHtml(r.question)+'</p><input id="clarify-answer" type="text" placeholder="Votre réponse…" style="width:100%;padding:.5rem;box-sizing:border-box"><button class="btn btn-navy" id="btn-clarify-send" style="margin-top:.5rem">Envoyer la précision</button></div>';
+      const ca=$('#clarify-answer');if(ca)ca.focus();
+      $('#btn-clarify-send').onclick=()=>{const a=$('#clarify-answer').value.trim();if(!a)return;$('#request').value=req+'\n\nPrécision : '+a;$('#btn-propose').click();};
+      $('#btn-propose').disabled=false;refresh();return;}
     else{token=r.token;$('#prop-summary').textContent=r.summary;
       if(r.global){
         $('#prop-files').innerHTML=r.changes.length?'<p class="small muted">🌐 Cette modification s\'appliquera à <b>'+r.targets+' page'+(r.targets>1?'s':'')+'</b> du site en une fois'+(r.skipped?' <span class="muted">('+r.skipped+' page(s) avec une mise en page différente ne seront pas touchées)</span>':'')+'. Aperçu ci-contre.</p>':'<p class="small muted">Aucun changement à appliquer (voir l\'explication).</p>';
