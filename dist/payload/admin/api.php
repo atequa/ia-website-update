@@ -653,6 +653,32 @@ if ($action === 'undo') {
 // servi depuis /assets/ sur le domaine du site, exécuterait ce code (XSS stocké).
 const BO_UPLOAD_EXT = ['jpg','jpeg','png','webp','gif','pdf','doc','docx','xls','xlsx','ppt','pptx','csv'];
 const BO_IMG_EXT    = ['jpg','jpeg','png','webp','gif'];
+
+// Optimisation image : redimensionne (max 1600 px sur le plus grand côté) + convertit en WebP q82
+// → poids réduit (argument GEO/vitesse). GIF exclu (préserve l'animation). Retourne le chemin .webp
+// écrit, ou null si GD/WebP indisponible ou source illisible (l'appelant garde alors l'original).
+function bo_optimize_to_webp(string $tmp, string $ext, string $base): ?string {
+    if (!function_exists('imagewebp')) return null;
+    $img = null;
+    if ($ext==='jpg'||$ext==='jpeg') $img=@imagecreatefromjpeg($tmp);
+    elseif ($ext==='png')  $img=@imagecreatefrompng($tmp);
+    elseif ($ext==='webp') $img=@imagecreatefromwebp($tmp);
+    if (!$img) return null;
+    $w=imagesx($img); $h=imagesy($img); $MAX=1600;
+    if (max($w,$h) > $MAX) {
+        $s=$MAX/max($w,$h); $nw=max(1,(int)round($w*$s)); $nh=max(1,(int)round($h*$s));
+        $d=imagecreatetruecolor($nw,$nh);
+        imagealphablending($d,false); imagesavealpha($d,true);
+        imagecopyresampled($d,$img,0,0,0,0,$nw,$nh,$w,$h);
+        imagedestroy($img); $img=$d;
+    } else { imagealphablending($img,false); imagesavealpha($img,true); }
+    $dest=BO_DOCROOT.'/assets/'.$base.'.webp'; $i=1;
+    while (is_file($dest)) $dest=BO_DOCROOT.'/assets/'.$base.'-'.($i++).'.webp';
+    $ok=@imagewebp($img,$dest,82); imagedestroy($img);
+    if (!$ok) { @unlink($dest); return null; }
+    @chmod($dest,0644); return $dest;
+}
+
 if ($action === 'upload') {
     if (empty($_FILES['image']) || $_FILES['image']['error']!==UPLOAD_ERR_OK) fail(422, "Aucun fichier reçu.");
     $f=$_FILES['image'];
@@ -664,10 +690,14 @@ if ($action === 'upload') {
     if ($head!==false && stripos($head,'<?php')!==false) fail(422, "Fichier refusé (contenu non autorisé).");
     $base=preg_replace('/[^a-zA-Z0-9_-]/','-', pathinfo($f['name'], PATHINFO_FILENAME));
     $base=trim(substr($base,0,40),'-') ?: 'fichier';
-    $dest=BO_DOCROOT.'/assets/'.$base.'.'.$ext; $i=1;
-    while (is_file($dest)){ $dest=BO_DOCROOT.'/assets/'.$base.'-'.($i++).'.'.$ext; }
-    if (!move_uploaded_file($f['tmp_name'],$dest)) fail(500, "Échec de l'enregistrement.");
-    @chmod($dest,0644);
+    // Images matricielles (hors GIF animé) : optimisées en WebP (redim + q82). Sinon (GIF, PDF, doc…) : telles quelles.
+    $dest = in_array($ext,['jpg','jpeg','png','webp'],true) ? bo_optimize_to_webp($f['tmp_name'], $ext, $base) : null;
+    if ($dest === null) {
+        $dest=BO_DOCROOT.'/assets/'.$base.'.'.$ext; $i=1;
+        while (is_file($dest)){ $dest=BO_DOCROOT.'/assets/'.$base.'-'.($i++).'.'.$ext; }
+        if (!move_uploaded_file($f['tmp_name'],$dest)) fail(500, "Échec de l'enregistrement.");
+        @chmod($dest,0644);
+    }
     $fn = 'assets/'.basename($dest);
     $up = bo_json_read(BO_UPLOADS_FILE); if (!in_array($fn,$up,true)) { $up[]=$fn; bo_json_write(BO_UPLOADS_FILE,$up); }
     out(['ok'=>true,'filename'=>$fn]);
