@@ -110,14 +110,14 @@ foreach ($BOTS_IA as $name => $re) {
     $last = perf_ago($state['bots'][$name]['last'] ?? 0);
     $aiRows .= "<tr><td>" . htmlspecialchars($name) . "</td><td>{$n30}</td><td>" . htmlspecialchars($last) . "</td></tr>\n";
 }
-if ($aiRows === '') $aiRows = '<tr><td colspan="3">Comptage démarré le ' . date('d/m/Y', strtotime($state['installed'])) . ' — premières visites en cours d\'enregistrement.</td></tr>';
+if ($aiRows === '') $aiRows = '<tr><td colspan="3">Comptage démarré le ' . date('d/m/Y', strtotime($state['installed'])) . ', premières visites en cours d\'enregistrement.</td></tr>';
 
 $searchLine = [];
 foreach ($BOTS_SEARCH as $name => $re) {
     $n = perf_count($state, $name, 30);
     if ($n > 0) $searchLine[] = htmlspecialchars($name) . ' : ' . $n . ' passages';
 }
-$searchLine = $searchLine ? ('Moteurs de recherche classiques (30 j) — ' . implode(' · ', $searchLine) . '.') : '';
+$searchLine = $searchLine ? ('Moteurs de recherche classiques (30 j) : ' . implode(' · ', $searchLine) . '.') : '';
 
 $periodLabel = ($state['installed'] > date('Y-m-d', strtotime('-30 days')))
     ? 'depuis le ' . date('d/m/Y', strtotime($state['installed']))
@@ -208,7 +208,7 @@ if ($mob !== null || $desk !== null) {
     $psiBlock .= '<p>Affichage du contenu principal : ' . ($lcpParts ? implode(' · ', $lcpParts) : 'mesure en cours')
               . '. Mesure Google du ' . ($psiDate ?: 'première mesure en cours') . '.</p>';
 } else {
-    $psiBlock = '<p class="perf-num">—<small> /100</small></p><p>Première mesure Google en cours.</p>';
+    $psiBlock = '<p class="perf-num">-<small> /100</small></p><p>Première mesure Google en cours.</p>';
 }
 
 /* ============ 5. Uptime (option UptimeRobot) ============ */
@@ -264,17 +264,17 @@ if ($ecoScore !== null) {
     }
 }
 if ($ecoGrade) {
-    $tip = 'Méthode : formule officielle EcoIndex (poids de la page, nombre de requêtes et d\'éléments HTML) appliquée aux percentiles réels d\'HTTP Archive — des millions de pages analysées (Web Almanac). Estimation prudente.';
+    $tip = 'Méthode : formule officielle EcoIndex (poids de la page, nombre de requêtes et d\'éléments HTML) appliquée aux percentiles réels d\'HTTP Archive, soit des millions de pages analysées (Web Almanac). Estimation prudente.';
     $better = $ecoBetter !== null
         ? ' <strong>Plus léger que ~' . $ecoBetter . '&nbsp;% des pages du web.</strong> <span class="eco-info" tabindex="0" role="button" aria-label="Méthode de calcul">(?)<span class="eco-tip">' . $tip . '</span></span>'
         : '';
     $ecoBlock = '<div class="eco-wrap">'
-        . '<p class="perf-num">' . $ecoGrade . '<small> EcoIndex — ' . $ecoScore . '/100</small></p>'
+        . '<p class="perf-num">' . $ecoGrade . '<small> EcoIndex : ' . $ecoScore . '/100</small></p>'
         . '<p>Environ ' . str_replace('.', ',', (string)$ecoCo2) . ' g de CO₂ par visite.' . $better . '</p>'
         . '</div>'
         . '<style>.eco-wrap{position:relative}.eco-info{cursor:help;font-weight:700;font-size:.8em;vertical-align:.25em;opacity:.55}.eco-info .eco-tip{position:absolute;top:100%;right:0;margin-top:.4rem;width:min(320px,100%);background:#1c2530;color:#fff;padding:.6rem .75rem;border-radius:.5rem;font-size:.78rem;font-weight:400;line-height:1.45;opacity:0;visibility:hidden;transition:opacity .15s;z-index:30;box-shadow:0 10px 30px rgba(0,0,0,.3)}.eco-info:hover .eco-tip,.eco-info:focus .eco-tip{opacity:1;visibility:visible}</style>';
 } else {
-    $ecoBlock = '<p class="perf-num">—</p><p>Mesure de sobriété en cours.</p>';
+    $ecoBlock = '<p class="perf-num">-</p><p>Mesure de sobriété en cours.</p>';
 }
 
 /* ============ 6. Rendu ============ */
@@ -311,10 +311,10 @@ $repl = [
     '{{SSL_DATE}}'      => $sslDate ?: 'renouvellement automatique',
     '{{PSI_BLOCK}}'        => $psiBlock,
     '{{ECO_BLOCK}}'        => $ecoBlock,
-    '{{PSI_SCORE}}'        => $psiScore !== null ? (string)$psiScore : '—',
+    '{{PSI_SCORE}}'        => $psiScore !== null ? (string)$psiScore : '-',
     '{{PSI_LCP}}'          => $psiLcp !== '' ? $psiLcp : 'mesure en cours',
     '{{PSI_DATE}}'         => $psiDate ?: 'première mesure en cours',
-    '{{PSI_SCORE_DESKTOP}}'=> $psiScoreD !== null ? (string)$psiScoreD : '—',
+    '{{PSI_SCORE_DESKTOP}}'=> $psiScoreD !== null ? (string)$psiScoreD : '-',
     '{{PSI_LCP_DESKTOP}}'  => $psiLcpD !== '' ? $psiLcpD : 'mesure en cours',
     '{{UPTIME_HTML}}'      => $uptimeHtml,
 ];
